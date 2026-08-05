@@ -1,26 +1,319 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ═══════════════════════════════════════════════════════════════
+   CAMEL OS · Sistema "Obsidiana y Cristal" · bi-tema
+   Portado desde Camel Leads OS (rediseno-obsidiana) a Tailwind v4.
+   Tema por clase en <body>: sin clase = oscuro (default), .light = claro.
+   Tres materiales: M0 fondo obsidiana · M1 superficie sólida · M2 cristal.
+   Ningún color hardcodeado en componentes: todo referencia tokens.
+   ═══════════════════════════════════════════════════════════════ */
 
+/* Mapa de tokens → utilidades de Tailwind. `inline` emite var() directo,
+   de modo que el cambio de tema en runtime (body.light) funciona. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-archivo), 'Arial Black', sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+
+  --color-obsidian: var(--bg);
+  --color-surface-1: var(--s1);
+  --color-surface-2: var(--s2);
+  --color-surface-3: var(--s3);
+
+  --color-accent: var(--accent);
+  --color-accent-hi: var(--accHi);
+
+  --color-ink-1: var(--t1);
+  --color-ink-2: var(--t2);
+  --color-ink-3: var(--t3);
+
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-whatsapp: var(--whatsapp);
+
+  /* Alias de marca (compatibilidad con nomenclatura Camel) */
+  --color-camel-white: var(--t1);
+  --color-camel-blue: var(--accent);
+  --color-camel-blue-hi: var(--accHi);
+  --color-camel-gray: var(--t2);
+  --color-camel-black: var(--bg);
+
+  --tracking-brand: 0.35em;
+
+  --radius-c-xl: 20px;
+  --radius-c-lg: 14px;
+  --radius-c-md: 10px;
+  --radius-c-sm: 6px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.3, 1.3, 0.4, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  :root,
+  body {
+    color-scheme: dark;
+
+    /* ── Fondos y superficies (elevación por LUMINANCIA, no por sombra) ── */
+    --bg: #050608;
+    --s0: #0b0e14;
+    --s1: #0d1017;
+    --s2: #131722;
+    --s3: #1a1f2e;
+
+    /* ── Texto ── */
+    --t1: #edf0f7;
+    --t2: #9aa1b4;
+    --t3: #5c6374;
+
+    /* ── Marca ── */
+    --accent: #1e6ff2;
+    --accHi: #4d8fff;
+    --accHov: #7faeff;
+    --accent-rgb: 30, 111, 242;
+
+    /* ── Semántica: solo semáforo/estados ── */
+    --ok: #2fd575;
+    --warn: #f5b93e;
+    --danger: #f04b4b;
+    --whatsapp: #25d366;
+
+    /* ── Alphas blancas (bordes hairline, fills fantasma) ── */
+    --w02: rgba(255, 255, 255, 0.02);
+    --w03: rgba(255, 255, 255, 0.03);
+    --w04: rgba(255, 255, 255, 0.04);
+    --w05: rgba(255, 255, 255, 0.05);
+    --w06: rgba(255, 255, 255, 0.06);
+    --w07: rgba(255, 255, 255, 0.07);
+    --w08: rgba(255, 255, 255, 0.08);
+    --w09: rgba(255, 255, 255, 0.09);
+    --w10: rgba(255, 255, 255, 0.1);
+    --w12: rgba(255, 255, 255, 0.12);
+    --w16: rgba(255, 255, 255, 0.16);
+    --w20: rgba(255, 255, 255, 0.2);
+    --w25: rgba(255, 255, 255, 0.25);
+    --specW: rgba(255, 255, 255, 0.09);
+
+    /* ── Alphas negras (sombras) ── */
+    --k20: rgba(0, 0, 0, 0.2);
+    --k30: rgba(0, 0, 0, 0.3);
+    --k40: rgba(0, 0, 0, 0.4);
+    --k50: rgba(0, 0, 0, 0.5);
+    --k60: rgba(0, 0, 0, 0.6);
+
+    /* ── Cristal flotante (M2) ── */
+    --glassSide: rgba(8, 10, 15, 0.58);
+    --glassDeep: rgba(13, 16, 23, 0.78);
+    --glassFill: rgba(255, 255, 255, 0.05);
+    --inputDeep: rgba(10, 13, 19, 0.55);
+    --halo: rgba(30, 111, 242, 0.3);
+    --gridC: rgba(255, 255, 255, 0.022);
+    --glass-blur: 20px;
+    --glass-saturate: 1.4;
+
+    /* ── Bordes de material ── */
+    --specular-top: inset 0 1px 0 var(--specW);
+    --edge-crystal:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 var(--specW),
+      inset 1px 0 0 var(--specW), inset -1px 0 0 var(--specW),
+      inset 0 4px 12px var(--w05), inset 0 -4px 12px var(--k30),
+      0 24px 64px var(--k60), 0 2px 8px var(--k40);
+    --edge-solid: inset 0 1px 0 var(--specW);
+
+    /* ── Radios ── */
+    --r-xl: 20px;
+    --r-lg: 14px;
+    --r-md: 10px;
+    --r-sm: 6px;
+  }
+
+  /* ── Modo claro: solo se sobreescriben tokens BASE ── */
+  body.light {
+    color-scheme: light;
+    --bg: #edf0f6;
+    --s0: #f6f8fc;
+    --s1: #ffffff;
+    --s2: #eef2f9;
+    --s3: #e4eaf3;
+    --t1: #161b28;
+    --t2: #4c566e;
+    --t3: #7c8499;
+    --accHi: #1e6ff2;
+    --accHov: #1554b8;
+    --ok: #178a47;
+    --warn: #a66a08;
+    --danger: #c62828;
+    --w02: rgba(15, 23, 42, 0.03);
+    --w03: rgba(15, 23, 42, 0.04);
+    --w04: rgba(15, 23, 42, 0.05);
+    --w05: rgba(15, 23, 42, 0.06);
+    --w06: rgba(15, 23, 42, 0.08);
+    --w07: rgba(15, 23, 42, 0.1);
+    --w08: rgba(15, 23, 42, 0.11);
+    --w09: rgba(15, 23, 42, 0.12);
+    --w10: rgba(15, 23, 42, 0.14);
+    --w12: rgba(15, 23, 42, 0.16);
+    --w16: rgba(15, 23, 42, 0.25);
+    --w20: rgba(15, 23, 42, 0.3);
+    --w25: rgba(15, 23, 42, 0.35);
+    --specW: rgba(255, 255, 255, 0.65);
+    --k20: rgba(15, 23, 42, 0.05);
+    --k30: rgba(15, 23, 42, 0.07);
+    --k40: rgba(15, 23, 42, 0.1);
+    --k50: rgba(15, 23, 42, 0.12);
+    --k60: rgba(15, 23, 42, 0.26);
+    --glassSide: rgba(255, 255, 255, 0.75);
+    --glassDeep: rgba(255, 255, 255, 0.88);
+    --glassFill: rgba(255, 255, 255, 0.6);
+    --inputDeep: rgba(255, 255, 255, 0.7);
+    --halo: rgba(30, 111, 242, 0.16);
+    --gridC: rgba(15, 23, 42, 0.035);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--t1);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition:
+      background-color 240ms ease,
+      color 240ms ease;
+  }
+
+  a {
+    color: var(--accHi);
+  }
+  a:hover {
+    color: var(--accHov);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accHi);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+  }
+
+  ::selection {
+    background: rgba(30, 111, 242, 0.35);
+    color: var(--t1);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--w09);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--w20);
+    background-clip: content-box;
+  }
+
+  select option {
+    background: var(--s2);
+    color: var(--t1);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--t3);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Materiales y helpers (clases planas, sin @apply) ── */
+@layer utilities {
+  .eyebrow {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.35em;
+    color: var(--t3);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* M1 · Superficie de trabajo sólida */
+  .surface-1 {
+    background: var(--s1);
+    border: 1px solid var(--w07);
+    box-shadow: var(--edge-solid);
+  }
+  .surface-2 {
+    background: var(--s2);
+    border: 1px solid var(--w07);
+    box-shadow: var(--edge-solid);
+  }
+  .surface-3 {
+    background: var(--s3);
+    border: 1px solid var(--w10);
+    box-shadow: var(--edge-solid);
+  }
+  .specular {
+    box-shadow: var(--specular-top);
+  }
+
+  /* M2 · Cristal flotante (máx. 3 con backdrop-filter por viewport) */
+  .glass-float {
+    background: var(--glassFill);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid var(--w10);
+    box-shadow: var(--edge-crystal);
+  }
+  .glass-deep {
+    background: var(--glassDeep);
+    backdrop-filter: blur(24px) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(24px) saturate(var(--glass-saturate));
+    border: 1px solid var(--w10);
+    box-shadow: var(--edge-crystal);
+  }
+  .edge-crystal {
+    box-shadow: var(--edge-crystal);
+  }
+  .glow-active {
+    border-color: rgba(77, 143, 255, 0.26);
+    box-shadow:
+      var(--edge-crystal),
+      0 0 44px rgba(var(--accent-rgb), 0.14);
+  }
+}
+
+/* ── Keyframes del sistema ── */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+.animate-fade-up {
+  animation: fadeUp 480ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
