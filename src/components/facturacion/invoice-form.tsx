@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Printer, Send, Star, Trash2 } from 'lucide-react';
 import { Logo } from '@/components/brand/logo';
 import { InvoicePreview } from './invoice-preview';
@@ -51,19 +52,33 @@ function fechaHoyEspana(): string {
   }).format(new Date());
 }
 
-export function InvoiceForm() {
+export function InvoiceForm({
+  initial,
+  facturaId,
+}: {
+  /** Datos iniciales para editar una factura existente. */
+  initial?: Factura;
+  /** Id de la factura en edición (si se envía, "Generar" actualiza en vez de crear). */
+  facturaId?: string;
+} = {}) {
+  const router = useRouter();
+  const editando = !!facturaId;
   const formRef = useRef<HTMLDivElement>(null);
-  const [idioma, setIdioma] = useState<Idioma>('en'); // default inglés
-  const [moneda, setMoneda] = useState<Moneda>('AED');
+  const [idioma, setIdioma] = useState<Idioma>(initial?.idioma ?? 'en'); // default inglés
+  const [moneda, setMoneda] = useState<Moneda>(initial?.moneda ?? 'AED');
   const [monedaDefault, setMonedaDefault] = useState<Moneda | null>(null);
-  const [numero, setNumero] = useState('');
-  const [fecha, setFecha] = useState('');
-  // La fecha arranca con la de hoy (España). Se borra al primer clic en el campo.
-  const [fechaAuto, setFechaAuto] = useState(true);
-  const [clienteNombre, setClienteNombre] = useState('');
-  const [clienteId, setClienteId] = useState('');
-  const [clienteDireccion, setClienteDireccion] = useState('');
-  const [lineas, setLineas] = useState<LineaFactura[]>(() => [lineaVacia()]);
+  const [numero, setNumero] = useState(initial?.numero ?? '');
+  const [fecha, setFecha] = useState(initial?.fecha ?? '');
+  // La fecha arranca con la de hoy (España) salvo en edición. Se borra al primer clic.
+  const [fechaAuto, setFechaAuto] = useState(!initial);
+  const [clienteNombre, setClienteNombre] = useState(initial?.cliente.nombre ?? '');
+  const [clienteId, setClienteId] = useState(initial?.cliente.identificacion ?? '');
+  const [clienteDireccion, setClienteDireccion] = useState(initial?.cliente.direccion ?? '');
+  const [lineas, setLineas] = useState<LineaFactura[]>(() =>
+    initial && initial.lineas.length
+      ? initial.lineas.map((l) => ({ ...l, id: l.id || nuevoId() }))
+      : [lineaVacia()],
+  );
   const [estado, setEstado] = useState<{ tipo: 'idle' | 'ok' | 'error'; msg: string }>({
     tipo: 'idle',
     msg: '',
@@ -76,17 +91,18 @@ export function InvoiceForm() {
       const guardada = localStorage.getItem(KEY_MONEDA_DEFAULT) as Moneda | null;
       if (guardada && MONEDAS.includes(guardada)) {
         setMonedaDefault(guardada);
-        setMoneda(guardada);
+        if (!initial) setMoneda(guardada); // en edición se respeta la moneda de la factura
       }
     } catch {
       /* localStorage no disponible */
     }
-  }, []);
+  }, [initial]);
 
-  // Prefill de la fecha con hoy (España). En efecto para evitar mismatch de hidratación.
+  // Prefill de la fecha con hoy (España). En edición se conserva la fecha guardada.
   useEffect(() => {
+    if (initial) return;
     setFecha(fechaHoyEspana());
-  }, []);
+  }, [initial]);
 
   function fijarMonedaDefault() {
     try {
@@ -151,7 +167,7 @@ export function InvoiceForm() {
       const res = await fetch('/api/facturas/generar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(factura),
+        body: JSON.stringify(facturaId ? { ...factura, facturaId } : factura),
       });
       const data = await res.json();
       if (res.ok && data.ok) {
@@ -166,6 +182,9 @@ export function InvoiceForm() {
           URL.revokeObjectURL(url);
         }
         setEstado({ tipo: 'ok', msg: data.mensaje ?? 'Factura generada.' });
+        // Vuelve al listado de facturas (refresca los datos del server).
+        router.push('/facturacion');
+        router.refresh();
       } else {
         setEstado({ tipo: 'error', msg: data.motivo ?? 'No se pudo generar la factura.' });
       }
@@ -182,10 +201,10 @@ export function InvoiceForm() {
       <header className="flex items-center justify-between no-print">
         <Logo size="sm" />
         <Link
-          href="/"
+          href="/facturacion"
           className="inline-flex items-center gap-1.5 text-sm text-ink-2 transition-colors hover:text-ink-1"
         >
-          <ArrowLeft size={16} /> Centro de control
+          <ArrowLeft size={16} /> Facturas
         </Link>
       </header>
 
@@ -194,7 +213,7 @@ export function InvoiceForm() {
         <div ref={formRef} onKeyDown={onKeyDown} className="no-print">
           <p className="eyebrow">Facturación</p>
           <h1 className="mt-2 font-display text-3xl font-black tracking-tight text-ink-1">
-            Nueva factura
+            {editando ? 'Editar factura' : 'Nueva factura'}
           </h1>
           <p className="mt-2 text-xs text-ink-3">
             Consejo: pulsá <kbd className="rounded bg-[var(--w08)] px-1">Enter</kbd> para saltar al

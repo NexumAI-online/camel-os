@@ -4,7 +4,7 @@ import type { Factura } from '@/lib/invoice/types';
 import { facturaRenderPath } from '@/lib/invoice/render-url';
 import { urlToPdf } from '@/lib/pdf/render-pdf';
 import { driveConfigurada, subirPdfADrive } from '@/lib/google/drive';
-import { registrarFactura } from '@/lib/invoice/registro';
+import { actualizarRegistroFactura, registrarFactura } from '@/lib/invoice/registro';
 import { supabaseConfigurada } from '@/lib/supabase/server';
 
 /**
@@ -49,8 +49,13 @@ function nombreArchivo(f: Factura): string {
 
 export async function POST(req: Request) {
   let factura: Factura;
+  let facturaId: string | null = null;
   try {
-    factura = (await req.json()) as Factura;
+    const body = (await req.json()) as Record<string, unknown>;
+    // `facturaId` (opcional) indica edición → se actualiza en vez de insertar.
+    facturaId = typeof body?.facturaId === 'string' ? body.facturaId : null;
+    const { facturaId: _omit, ...resto } = body ?? {};
+    factura = resto as unknown as Factura;
   } catch {
     return NextResponse.json(
       { ok: false, motivo: 'Cuerpo de la petición inválido.' },
@@ -108,10 +113,14 @@ export async function POST(req: Request) {
     avisos.push('Drive no configurado todavía (falta el refresh token de OAuth).');
   }
 
-  // 4. Supabase (opcional).
+  // 4. Supabase (opcional). Si viene facturaId → actualiza; si no → inserta.
   if (supabaseConfigurada()) {
     try {
-      await registrarFactura(factura, driveUrl);
+      if (facturaId) {
+        await actualizarRegistroFactura(facturaId, factura, driveUrl);
+      } else {
+        await registrarFactura(factura, driveUrl);
+      }
     } catch (e) {
       const detalle = e instanceof Error ? e.message : String(e);
       avisos.push(`No se registró en Supabase: ${detalle}`);

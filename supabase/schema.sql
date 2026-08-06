@@ -14,6 +14,7 @@ create table if not exists public.facturas (
   fecha                   text,                       -- dd/mm/aaaa (como lo escribe el usuario)
   cliente_nombre          text,
   cliente_identificacion  text,
+  cliente_direccion       text,
   total                   numeric not null default 0,
   lineas                  jsonb   not null default '[]'::jsonb,
   drive_url               text,                       -- link al PDF en Drive (null si Drive no estaba activo)
@@ -28,3 +29,8 @@ create index if not exists facturas_creada_en_idx on public.facturas (creada_en 
 alter table public.facturas enable row level security;
 -- (Sin políticas: solo la service role del backend accede. Añadir políticas
 --  cuando haya lectura desde el frontend con usuarios autenticados.)
+
+-- ── Migración para tablas ya creadas (edición de facturas) ──
+-- Si la tabla `facturas` ya existía, correr esto para persistir la dirección
+-- del cliente al editar una factura. Es idempotente y seguro.
+alter table public.facturas add column if not exists cliente_direccion text;
