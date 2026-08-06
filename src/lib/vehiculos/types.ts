@@ -13,6 +13,14 @@ export function etiquetaEstado(estado: string): string {
   return ESTADOS.find((e) => e.value === estado)?.label ?? estado;
 }
 
+/** Una foto del vehículo guardada en Supabase Storage. */
+export interface Foto {
+  /** Ruta dentro del bucket (para poder borrarla). */
+  path: string;
+  /** URL pública para mostrarla. */
+  url: string;
+}
+
 export interface Vehiculo {
   id: string;
   marca: string;
@@ -25,6 +33,7 @@ export interface Vehiculo {
   precio_compra: number | null;
   estado: EstadoVehiculo;
   notas: string | null;
+  fotos: Foto[];
   creada_en: string;
   actualizada_en: string;
 }

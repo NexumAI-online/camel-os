@@ -1,7 +1,15 @@
 import 'server-only';
 
 import { getSupabaseAdmin } from '@/lib/supabase/server';
-import type { Vehiculo } from './types';
+import type { Foto, Vehiculo } from './types';
+
+/** Garantiza que `fotos` sea siempre un array (columna puede venir null). */
+function normalizar(row: Record<string, unknown>): Vehiculo {
+  return {
+    ...(row as unknown as Vehiculo),
+    fotos: Array.isArray(row.fotos) ? (row.fotos as Foto[]) : [],
+  };
+}
 
 /** Lista vehículos, opcionalmente filtrados por texto (marca/modelo/bastidor). */
 export async function listarVehiculos(busqueda?: string): Promise<Vehiculo[]> {
@@ -22,7 +30,7 @@ export async function listarVehiculos(busqueda?: string): Promise<Vehiculo[]> {
 
   const { data, error } = await q;
   if (error) throw new Error(error.message);
-  return (data ?? []) as Vehiculo[];
+  return (data ?? []).map((r) => normalizar(r as Record<string, unknown>));
 }
 
 /** Obtiene un vehículo por id, o null si no existe. */
@@ -34,5 +42,5 @@ export async function obtenerVehiculo(id: string): Promise<Vehiculo | null> {
     .eq('id', id)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return (data as Vehiculo | null) ?? null;
+  return data ? normalizar(data as Record<string, unknown>) : null;
 }

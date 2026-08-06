@@ -104,11 +104,21 @@ export default async function VehiculosPage({
               {vehiculos.map((v) => (
                 <tr key={v.id} className="group border-b border-[var(--w06)] last:border-0 transition-colors hover:bg-[var(--w04)]">
                   <td className="px-4 py-3">
-                    <Link href={`/vehiculos/${v.id}`} className="block">
-                      <span className="font-semibold text-ink-1 group-hover:text-accent-hi">
-                        {v.marca} {v.modelo}
+                    <Link href={`/vehiculos/${v.id}`} className="flex items-center gap-3">
+                      {v.fotos[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={v.fotos[0].url} alt="" className="h-10 w-14 shrink-0 rounded object-cover" />
+                      ) : (
+                        <span className="surface-2 flex h-10 w-14 shrink-0 items-center justify-center rounded text-ink-3">
+                          <Car size={16} strokeWidth={1.5} />
+                        </span>
+                      )}
+                      <span>
+                        <span className="font-semibold text-ink-1 group-hover:text-accent-hi">
+                          {v.marca} {v.modelo}
+                        </span>
+                        {v.color && <span className="ml-2 text-xs text-ink-3">{v.color}</span>}
                       </span>
-                      {v.color && <span className="ml-2 text-xs text-ink-3">{v.color}</span>}
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-ink-2">{v.anio ?? '—'}</td>

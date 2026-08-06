@@ -77,6 +77,16 @@ export function VehiculoForm({
         <textarea name="notas" defaultValue={v?.notas ?? ''} className={`${inputCls} min-h-24 resize-y`} placeholder="Observaciones, reparaciones, specs…" />
       </Campo>
 
+      <Campo label="Agregar fotos (podés elegir varias)" className="mt-4">
+        <input
+          type="file"
+          name="fotos"
+          multiple
+          accept="image/*"
+          className="block w-full text-sm text-ink-2 file:mr-3 file:cursor-pointer file:rounded-c-md file:border-0 file:bg-accent/15 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-accent-hi hover:file:bg-accent/25"
+        />
+      </Campo>
+
       <div className="mt-6 flex items-center gap-3">
         <SubmitButton>{submitLabel}</SubmitButton>
       </div>

@@ -16,6 +16,24 @@ export function SubmitButton({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Botón "×" para eliminar una foto puntual (con confirmación). */
+export function FotoDeleteButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      onClick={(e) => {
+        if (!confirm('¿Eliminar esta foto?')) e.preventDefault();
+      }}
+      title="Eliminar foto"
+      className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm leading-none text-white transition-colors hover:bg-danger disabled:opacity-50"
+    >
+      ×
+    </button>
+  );
+}
+
 /** Botón de eliminar con confirmación. Va dentro de su propio <form>. */
 export function DeleteButton() {
   const { pending } = useFormStatus();

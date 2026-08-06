@@ -4,7 +4,15 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { getSupabaseAdmin } from '@/lib/supabase/server';
-import { ESTADOS } from './types';
+import { ESTADOS, type Foto } from './types';
+import { borrarFoto, subirFotos } from './storage';
+
+/** Archivos de imagen seleccionados en el formulario (input name="fotos"). */
+function archivosDe(formData: FormData): File[] {
+  return formData
+    .getAll('fotos')
+    .filter((f): f is File => f instanceof File && f.size > 0);
+}
 
 /** Extrae y normaliza los campos del formulario de vehículo. */
 function parseForm(formData: FormData) {
@@ -46,8 +54,15 @@ export async function crearVehiculo(formData: FormData) {
     throw new Error('Marca y modelo son obligatorios.');
   }
   const supabase = getSupabaseAdmin();
-  const { error } = await supabase.from('vehiculos').insert(datos);
+  const { data, error } = await supabase.from('vehiculos').insert(datos).select('id').single();
   if (error) throw new Error(error.message);
+
+  // Sube las fotos (si hay) a la carpeta del vehículo recién creado.
+  const archivos = archivosDe(formData);
+  if (archivos.length) {
+    const fotos = await subirFotos(data.id, archivos);
+    await supabase.from('vehiculos').update({ fotos }).eq('id', data.id);
+  }
 
   revalidatePath('/vehiculos');
   redirect('/vehiculos');
@@ -59,12 +74,42 @@ export async function actualizarVehiculo(id: string, formData: FormData) {
     throw new Error('Marca y modelo son obligatorios.');
   }
   const supabase = getSupabaseAdmin();
-  const { error } = await supabase.from('vehiculos').update(datos).eq('id', id);
+
+  // Fotos nuevas se agregan a las existentes (no reemplazan).
+  const archivos = archivosDe(formData);
+  const payload: Record<string, unknown> = { ...datos };
+  if (archivos.length) {
+    const nuevas = await subirFotos(id, archivos);
+    const { data: actual } = await supabase.from('vehiculos').select('fotos').eq('id', id).single();
+    const existentes: Foto[] = Array.isArray(actual?.fotos) ? (actual!.fotos as Foto[]) : [];
+    payload.fotos = [...existentes, ...nuevas];
+  }
+
+  const { error } = await supabase.from('vehiculos').update(payload).eq('id', id);
   if (error) throw new Error(error.message);
 
   revalidatePath('/vehiculos');
   revalidatePath(`/vehiculos/${id}`);
   redirect('/vehiculos');
+}
+
+/** Borra una foto puntual de un vehículo (del storage y del registro). */
+export async function eliminarFotoVehiculo(id: string, path: string) {
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase.from('vehiculos').select('fotos').eq('id', id).single();
+  const fotos: Foto[] = Array.isArray(data?.fotos) ? (data!.fotos as Foto[]) : [];
+  const restantes = fotos.filter((f) => f.path !== path);
+
+  const { error } = await supabase.from('vehiculos').update({ fotos: restantes }).eq('id', id);
+  if (error) throw new Error(error.message);
+  try {
+    await borrarFoto(path);
+  } catch {
+    /* si falla el borrado físico, al menos ya no figura en el registro */
+  }
+
+  revalidatePath(`/vehiculos/${id}`);
+  revalidatePath('/vehiculos');
 }
 
 export async function eliminarVehiculo(id: string) {
