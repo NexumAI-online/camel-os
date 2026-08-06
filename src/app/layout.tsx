@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Archivo, Inter } from 'next/font/google';
+import { Archivo, Inter, Roboto } from 'next/font/google';
 import { NightRoad } from '@/components/backgrounds/night-road';
 import './globals.css';
 
@@ -14,6 +14,14 @@ const inter = Inter({
   variable: '--font-inter',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+  display: 'swap',
+});
+
+// Fuente del documento de factura (calca el PDF de ECOM, que usa Roboto).
+const roboto = Roboto({
+  variable: '--font-roboto',
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
   display: 'swap',
 });
 
@@ -33,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es">
       <body
         suppressHydrationWarning
-        className={`${archivo.variable} ${inter.variable} font-sans antialiased`}
+        className={`${archivo.variable} ${inter.variable} ${roboto.variable} font-sans antialiased`}
       >
         {/* Aplica el tema guardado antes del primer paint (evita el flash claro→oscuro). */}
         <script

@@ -307,6 +307,48 @@
   animation: fadeUp 480ms var(--ease-out) both;
 }
 
+/* ── Impresión: solo el documento de factura (.print-area), a página A4 completa ──
+   El documento está diseñado en una grilla de 595px (= 595pt = ancho A4). Al
+   imprimir se escala ×1.3336 para llenar los 210mm reales del A4, replicando el
+   PDF de ECOM. `@page margin:0` elimina los márgenes y, de paso, la cabecera/pie
+   que el navegador añade (fecha, título, URL, nº de página). */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  /* Oculta todo y revela solo el área imprimible. */
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 595px !important;
+    max-width: none !important;
+    margin: 0 !important;
+    transform: scale(1.3336);
+    transform-origin: top left;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    --tw-ring-shadow: 0 0 #0000;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

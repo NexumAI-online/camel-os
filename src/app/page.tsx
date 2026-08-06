@@ -28,7 +28,7 @@ const FEATURES: Feature[] = [
       'Todos los vehículos con marca, modelo, año, kilómetros, bastidor, mulquilla y documentación de origen.',
     href: '/vehiculos',
     Icon: Database,
-    estado: 'pronto',
+    estado: 'activo',
   },
   {
     key: 'buscador',
