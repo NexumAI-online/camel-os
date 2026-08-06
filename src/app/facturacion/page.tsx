@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft, Plus, FileText, ExternalLink } from 'lucide-react';
 
 import { Logo } from '@/components/brand/logo';
+import { ClickableRow } from '@/components/ui/clickable-row';
 import { listarFacturas } from '@/lib/facturas/db';
 import { formatearImporte } from '@/lib/invoice/format';
 import type { Moneda } from '@/lib/invoice/types';
@@ -63,7 +64,7 @@ export default async function FacturacionPage() {
             </thead>
             <tbody>
               {facturas.map((f) => (
-                <tr key={f.id} className="group border-b border-[var(--w06)] last:border-0 transition-colors hover:bg-[var(--w04)]">
+                <ClickableRow key={f.id} href={`/facturacion/${f.id}`} className="group border-b border-[var(--w06)] last:border-0 transition-colors hover:bg-[var(--w04)]">
                   <td className="px-4 py-3">
                     <Link href={`/facturacion/${f.id}`} className="font-semibold text-ink-1 group-hover:text-accent-hi">
                       {f.numero || '—'}
@@ -93,7 +94,7 @@ export default async function FacturacionPage() {
                       <span className="text-xs text-ink-3">—</span>
                     )}
                   </td>
-                </tr>
+                </ClickableRow>
               ))}
             </tbody>
           </table>

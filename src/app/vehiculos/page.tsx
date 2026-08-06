@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft, Plus, Search, Car } from 'lucide-react';
 
 import { Logo } from '@/components/brand/logo';
+import { ClickableRow } from '@/components/ui/clickable-row';
 import { listarVehiculos } from '@/lib/vehiculos/db';
 import { etiquetaEstado, type EstadoVehiculo } from '@/lib/vehiculos/types';
 
@@ -102,7 +103,7 @@ export default async function VehiculosPage({
             </thead>
             <tbody>
               {vehiculos.map((v) => (
-                <tr key={v.id} className="group border-b border-[var(--w06)] last:border-0 transition-colors hover:bg-[var(--w04)]">
+                <ClickableRow key={v.id} href={`/vehiculos/${v.id}`} className="group border-b border-[var(--w06)] last:border-0 transition-colors hover:bg-[var(--w04)]">
                   <td className="px-4 py-3">
                     <Link href={`/vehiculos/${v.id}`} className="flex items-center gap-3">
                       {v.fotos[0] ? (
@@ -132,7 +133,7 @@ export default async function VehiculosPage({
                   <td className="px-4 py-3 text-right tabular-nums text-ink-1">
                     {v.precio_compra != null ? nf.format(v.precio_compra) : '—'}
                   </td>
-                </tr>
+                </ClickableRow>
               ))}
             </tbody>
           </table>
