@@ -37,7 +37,7 @@ const FEATURES: Feature[] = [
       'Búsqueda automatizada de unidades en los portales de Dubái según marca, modelo, spec, kilómetros y presupuesto.',
     href: '/buscador',
     Icon: Search,
-    estado: 'pronto',
+    estado: 'activo',
   },
 ];
 
