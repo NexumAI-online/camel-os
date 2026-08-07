@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { ArrowLeft, Plus, Search, Car, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Car, FileText, Calendar, Gauge, Check } from 'lucide-react';
 
 import { Logo } from '@/components/brand/logo';
 import { ClickableRow } from '@/components/ui/clickable-row';
-import { listarVehiculos } from '@/lib/vehiculos/db';
-import { etiquetaEstado, type EstadoVehiculo } from '@/lib/vehiculos/types';
+import { ControlesVehiculos } from '@/components/vehiculos/controles-vehiculos';
+import { listarVehiculos, listarMarcas } from '@/lib/vehiculos/db';
+import { etiquetaEstado, type EstadoVehiculo, type Vehiculo } from '@/lib/vehiculos/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,13 +18,48 @@ const ESTADO_CLS: Record<EstadoVehiculo, string> = {
   vendido: 'surface-2 text-ink-3',
 };
 
+/** Chips de documentos (nombres) compartidos por lista y galería. */
+function DocsChips({ docs, max = 2 }: { docs: Vehiculo['documentos']; max?: number }) {
+  if (docs.length === 0) return <span className="text-xs text-ink-3">—</span>;
+  return (
+    <div className="flex max-w-[240px] flex-col gap-1">
+      {docs.slice(0, max).map((d) => (
+        <span key={d.path} className="inline-flex items-center gap-1.5 text-xs text-ink-2" title={d.nombre}>
+          <FileText size={12} className="shrink-0 text-ink-3" />
+          <span className="truncate">{d.nombre}</span>
+        </span>
+      ))}
+      {docs.length > max && <span className="text-xs text-ink-3">+{docs.length - max} más</span>}
+    </div>
+  );
+}
+
 export default async function VehiculosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    marca?: string;
+    estado?: string;
+    mulkiya?: string;
+    orden?: string;
+    vista?: string;
+  }>;
 }) {
-  const { q } = await searchParams;
-  const vehiculos = await listarVehiculos(q);
+  const sp = await searchParams;
+  const [vehiculos, marcas] = await Promise.all([
+    listarVehiculos({
+      q: sp.q,
+      marca: sp.marca,
+      estado: sp.estado,
+      mulkiya: sp.mulkiya,
+      orden: sp.orden,
+    }),
+    listarMarcas(),
+  ]);
+
+  const vista = sp.vista === 'galeria' ? 'galeria' : 'lista';
+  const hayFiltros = !!(sp.q || sp.marca || sp.estado || sp.mulkiya);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-8 sm:px-10">
@@ -45,7 +81,7 @@ export default async function VehiculosPage({
           </h1>
           <p className="mt-1 text-sm text-ink-3">
             {vehiculos.length} {vehiculos.length === 1 ? 'unidad' : 'unidades'}
-            {q ? ` · filtrando “${q}”` : ''}
+            {hayFiltros ? ' · filtrado' : ''}
           </p>
         </div>
         <Link
@@ -56,39 +92,72 @@ export default async function VehiculosPage({
         </Link>
       </div>
 
-      {/* Búsqueda (GET) */}
-      <form className="mt-6 flex items-center gap-2" role="search">
-        <div className="relative flex-1 sm:max-w-md">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
-          <input
-            name="q"
-            defaultValue={q ?? ''}
-            placeholder="Buscar por marca, modelo o bastidor…"
-            className="w-full rounded-c-md border border-[var(--w10)] bg-[var(--inputDeep)] py-2.5 pl-9 pr-3 text-sm text-ink-1 outline-none transition-colors placeholder:text-ink-3 focus:border-accent"
-          />
-        </div>
-        <button
-          type="submit"
-          className="rounded-c-md border border-[var(--w12)] px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-accent hover:text-ink-1"
-        >
-          Buscar
-        </button>
-      </form>
+      <ControlesVehiculos marcas={marcas} />
 
-      {/* Listado */}
+      {/* Vacío */}
       {vehiculos.length === 0 ? (
         <div className="surface-1 mt-6 flex flex-col items-center gap-3 rounded-c-xl px-6 py-16 text-center">
           <Car size={32} className="text-ink-3" strokeWidth={1.5} />
           <p className="text-sm text-ink-2">
-            {q ? 'Ningún vehículo coincide con la búsqueda.' : 'Todavía no hay vehículos cargados.'}
+            {hayFiltros ? 'Ningún vehículo coincide con los filtros.' : 'Todavía no hay vehículos cargados.'}
           </p>
-          {!q && (
+          {!hayFiltros && (
             <Link href="/vehiculos/nuevo" className="text-sm font-semibold text-accent-hi hover:underline">
               Cargar el primero
             </Link>
           )}
         </div>
+      ) : vista === 'galeria' ? (
+        /* ── Vista galería ── */
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {vehiculos.map((v) => (
+            <Link
+              key={v.id}
+              href={`/vehiculos/${v.id}`}
+              className="glass-float group flex flex-col overflow-hidden rounded-c-xl transition-colors hover:border-accent"
+            >
+              <div className="relative aspect-[16/10] overflow-hidden surface-2">
+                {v.fotos[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={v.fotos[0].url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-ink-3">
+                    <Car size={28} strokeWidth={1.5} />
+                  </div>
+                )}
+                <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-xs font-medium ${ESTADO_CLS[v.estado]}`}>
+                  {etiquetaEstado(v.estado)}
+                </span>
+                {v.mulquilla && (
+                  <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-xs font-medium text-white">
+                    <Check size={11} /> Mulkiya
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col p-4">
+                <p className="font-semibold leading-tight text-ink-1 group-hover:text-accent-hi">
+                  {v.marca} {v.modelo}
+                  {v.color && <span className="ml-2 text-xs font-normal text-ink-3">{v.color}</span>}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-3">
+                  {v.anio != null && <span className="inline-flex items-center gap-1"><Calendar size={12} /> {v.anio}</span>}
+                  {v.km != null && <span className="inline-flex items-center gap-1"><Gauge size={12} /> {nf.format(v.km)} km</span>}
+                  {v.bastidor && <span className="font-mono">{v.bastidor}</span>}
+                </div>
+                <div className="mt-3">
+                  <DocsChips docs={v.documentos} />
+                </div>
+                <div className="mt-3 flex items-end justify-between">
+                  <span className="font-display text-lg font-bold text-accent-hi">
+                    {v.precio_compra != null ? `${nf.format(v.precio_compra)} AED` : '—'}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
       ) : (
+        /* ── Vista lista ── */
         <div className="glass-float mt-6 overflow-x-auto rounded-c-xl">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead>
@@ -138,21 +207,7 @@ export default async function VehiculosPage({
                     />
                   </td>
                   <td className="px-4 py-3">
-                    {v.documentos.length === 0 ? (
-                      <span className="text-xs text-ink-3">—</span>
-                    ) : (
-                      <div className="flex max-w-[240px] flex-col gap-1">
-                        {v.documentos.slice(0, 2).map((d) => (
-                          <span key={d.path} className="inline-flex items-center gap-1.5 text-xs text-ink-2" title={d.nombre}>
-                            <FileText size={12} className="shrink-0 text-ink-3" />
-                            <span className="truncate">{d.nombre}</span>
-                          </span>
-                        ))}
-                        {v.documentos.length > 2 && (
-                          <span className="text-xs text-ink-3">+{v.documentos.length - 2} más</span>
-                        )}
-                      </div>
-                    )}
+                    <DocsChips docs={v.documentos} />
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${ESTADO_CLS[v.estado]}`}>

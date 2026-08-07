@@ -13,6 +13,28 @@ export function etiquetaEstado(estado: string): string {
   return ESTADOS.find((e) => e.value === estado)?.label ?? estado;
 }
 
+/** Opciones de ordenamiento del listado (campo + dirección en un solo valor). */
+export const ORDENES = [
+  { value: 'reciente', label: 'Más recientes' },
+  { value: 'precio_desc', label: 'Precio: mayor a menor' },
+  { value: 'precio_asc', label: 'Precio: menor a mayor' },
+  { value: 'anio_desc', label: 'Año: más nuevo' },
+  { value: 'anio_asc', label: 'Año: más viejo' },
+  { value: 'km_asc', label: 'Km: menos primero' },
+  { value: 'km_desc', label: 'Km: más primero' },
+  { value: 'marca', label: 'Marca (A–Z)' },
+  { value: 'mulkiya', label: 'Con mulkiya primero' },
+] as const;
+
+/** Filtros y orden del listado de vehículos. */
+export interface FiltrosVehiculos {
+  q?: string;
+  marca?: string;
+  estado?: string;
+  mulkiya?: string; // 'si' | 'no'
+  orden?: string;
+}
+
 /** Una foto del vehículo guardada en Supabase Storage. */
 export interface Foto {
   /** Ruta dentro del bucket (para poder borrarla). */
