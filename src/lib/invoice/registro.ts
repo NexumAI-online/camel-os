@@ -5,15 +5,17 @@ import { totalFactura } from './format';
 import type { Factura } from './types';
 
 /**
- * Registro de facturas en Supabase (índice + link al PDF de Drive). El archivo
- * PDF vive en Drive; acá guardamos los datos consultables y editables.
+ * Registro de facturas en Supabase (índice + datos + referencia al PDF).
+ * El PDF vive en Supabase Storage (bucket `facturas`); la columna `drive_url`
+ * guarda su `path` de Storage. (Se mantiene el nombre de columna por compat;
+ * valores viejos con http:// son PDFs legacy en Google Drive.)
  *
  * `cliente_direccion` es opcional a nivel esquema: si la columna todavía no
  * existe (ALTER pendiente), el guardado igual funciona sin ella (la dirección
  * no persiste hasta correr el ALTER). Así nada se rompe por el orden de setup.
  */
 
-function fila(factura: Factura, driveUrl: string | null) {
+function fila(factura: Factura, pdfRef: string | null) {
   return {
     numero: factura.numero,
     tipo: factura.tipo,
@@ -25,8 +27,15 @@ function fila(factura: Factura, driveUrl: string | null) {
     cliente_direccion: factura.cliente.direccion,
     total: totalFactura(factura.lineas),
     lineas: factura.lineas,
-    drive_url: driveUrl,
+    drive_url: pdfRef,
   };
+}
+
+/** Referencia actual del PDF de una factura (path de Storage o URL legacy). */
+export async function refPdfFactura(id: string): Promise<string | null> {
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase.from('facturas').select('drive_url').eq('id', id).maybeSingle();
+  return (data?.drive_url as string | null) ?? null;
 }
 
 function faltaColumnaDireccion(msg: string): boolean {
@@ -36,10 +45,10 @@ function faltaColumnaDireccion(msg: string): boolean {
 /** Inserta una factura nueva. Devuelve su id (o null si no se pudo leer). */
 export async function registrarFactura(
   factura: Factura,
-  driveUrl: string | null,
+  pdfRef: string | null,
 ): Promise<string | null> {
   const supabase = getSupabaseAdmin();
-  const f = fila(factura, driveUrl);
+  const f = fila(factura, pdfRef);
 
   let res = await supabase.from('facturas').insert(f).select('id').maybeSingle();
   if (res.error && faltaColumnaDireccion(res.error.message)) {
@@ -54,10 +63,10 @@ export async function registrarFactura(
 export async function actualizarRegistroFactura(
   id: string,
   factura: Factura,
-  driveUrl: string | null,
+  pdfRef: string | null,
 ): Promise<void> {
   const supabase = getSupabaseAdmin();
-  const f = fila(factura, driveUrl);
+  const f = fila(factura, pdfRef);
 
   let res = await supabase.from('facturas').update(f).eq('id', id);
   if (res.error && faltaColumnaDireccion(res.error.message)) {

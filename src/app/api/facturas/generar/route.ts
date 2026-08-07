@@ -3,8 +3,12 @@ import { NextResponse } from 'next/server';
 import type { Factura } from '@/lib/invoice/types';
 import { facturaRenderPath } from '@/lib/invoice/render-url';
 import { urlToPdf } from '@/lib/pdf/render-pdf';
-import { driveConfigurada, subirPdfADrive } from '@/lib/google/drive';
-import { actualizarRegistroFactura, registrarFactura } from '@/lib/invoice/registro';
+import {
+  actualizarRegistroFactura,
+  refPdfFactura,
+  registrarFactura,
+} from '@/lib/invoice/registro';
+import { borrarPdfFactura, subirPdfFactura } from '@/lib/facturas/storage';
 import { supabaseConfigurada } from '@/lib/supabase/server';
 
 /**
@@ -13,12 +17,12 @@ import { supabaseConfigurada } from '@/lib/supabase/server';
  * Flujo:
  *   1. Validar los datos de la factura.
  *   2. Renderizar el layout `InvoicePreview` a HTML y de ahí a PDF A4 (Chromium).
- *   3. Si Drive está configurado → subir el PDF a la carpeta de Camel.
- *   4. Si Supabase está configurado → registrar la factura (índice + link).
- *   5. Devolver el PDF en base64 para descarga inmediata + estado de cada paso.
+ *   3. Si Supabase está configurado → subir el PDF a Storage y registrar la
+ *      factura (índice + referencia al PDF). Todo vive en Supabase (no Drive).
+ *   4. Devolver el PDF en base64 para descarga inmediata + estado de cada paso.
  *
- * El PDF se genera SIEMPRE (no depende de credenciales). Drive y Supabase son
- * capas opcionales que se activan al cargar sus variables de entorno.
+ * El PDF se genera SIEMPRE (no depende de credenciales). Supabase es la capa
+ * de persistencia; se activa al cargar SUPABASE_URL + service role key.
  */
 
 // Chromium necesita el runtime Node (no Edge) y algo de holgura de tiempo.
@@ -98,47 +102,45 @@ export async function POST(req: Request) {
 
   const filename = nombreArchivo(factura);
   const avisos: string[] = [];
-  let driveUrl: string | null = null;
+  let guardada = false;
 
-  // 3. Drive (opcional).
-  if (driveConfigurada()) {
-    try {
-      const r = await subirPdfADrive(pdf, filename);
-      driveUrl = r.url;
-    } catch (e) {
-      const detalle = e instanceof Error ? e.message : String(e);
-      avisos.push(`No se pudo subir a Drive: ${detalle}`);
-    }
-  } else {
-    avisos.push('Drive no configurado todavía (falta el refresh token de OAuth).');
-  }
-
-  // 4. Supabase (opcional). Si viene facturaId → actualiza; si no → inserta.
+  // 3. Supabase: subir el PDF a Storage + registrar. Si viene facturaId → edita.
   if (supabaseConfigurada()) {
     try {
+      // Referencia anterior (para borrar el PDF viejo al re-generar una edición).
+      const refAnterior = facturaId ? await refPdfFactura(facturaId) : null;
+
+      const pdfRef = await subirPdfFactura(pdf, factura.numero);
+
       if (facturaId) {
-        await actualizarRegistroFactura(facturaId, factura, driveUrl);
+        await actualizarRegistroFactura(facturaId, factura, pdfRef);
       } else {
-        await registrarFactura(factura, driveUrl);
+        await registrarFactura(factura, pdfRef);
+      }
+      guardada = true;
+
+      // Limpia el PDF anterior si era de Storage (no toca URLs legacy de Drive).
+      if (refAnterior && !/^https?:/i.test(refAnterior)) {
+        await borrarPdfFactura(refAnterior).catch(() => {});
       }
     } catch (e) {
       const detalle = e instanceof Error ? e.message : String(e);
-      avisos.push(`No se registró en Supabase: ${detalle}`);
+      avisos.push(`No se guardó en Supabase: ${detalle}`);
     }
   } else {
     avisos.push('Supabase no configurado todavía (falta URL + service role key).');
   }
 
-  const mensaje = driveUrl
-    ? 'Factura generada y guardada en Drive.'
-    : 'PDF generado y descargado. (Drive/Supabase se activan al cargar sus credenciales.)';
+  const mensaje = guardada
+    ? 'Factura generada y guardada en Supabase.'
+    : 'PDF generado y descargado. (El guardado se activa al cargar las credenciales de Supabase.)';
 
   return NextResponse.json({
     ok: true,
     mensaje,
     filename,
     pdfBase64: Buffer.from(pdf).toString('base64'),
-    driveUrl,
+    guardada,
     avisos,
   });
 }
