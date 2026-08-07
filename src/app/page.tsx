@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { FileText, Database, Search, ArrowRight } from 'lucide-react';
+import { FileText, Database, Search, ArrowRight, LogOut } from 'lucide-react';
 import { Logo } from '@/components/brand/logo';
+import { cerrarSesion } from './login/actions';
 
 type Feature = {
   key: string;
@@ -47,7 +48,18 @@ export default function Home() {
       {/* Encabezado */}
       <header className="flex items-center justify-between">
         <Logo size="md" />
-        <span className="eyebrow hidden sm:block">Centro de control</span>
+        <div className="flex items-center gap-4">
+          <span className="eyebrow hidden sm:block">Centro de control</span>
+          <form action={cerrarSesion}>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-c-md border border-[var(--w10)] px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:border-danger hover:text-danger"
+              title="Cerrar sesión"
+            >
+              <LogOut size={14} /> Salir
+            </button>
+          </form>
+        </div>
       </header>
 
       {/* Título */}
