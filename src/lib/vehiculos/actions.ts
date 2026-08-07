@@ -4,13 +4,25 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { getSupabaseAdmin } from '@/lib/supabase/server';
-import { ESTADOS, type Foto } from './types';
-import { borrarFoto, subirFotos } from './storage';
+import { ESTADOS, type Documento, type Foto } from './types';
+import {
+  borrarDocumento,
+  borrarFoto,
+  subirDocumentos,
+  subirFotos,
+} from './storage';
 
 /** Archivos de imagen seleccionados en el formulario (input name="fotos"). */
 function archivosDe(formData: FormData): File[] {
   return formData
     .getAll('fotos')
+    .filter((f): f is File => f instanceof File && f.size > 0);
+}
+
+/** Documentos seleccionados en el formulario (input name="documentos"). */
+function documentosDe(formData: FormData): File[] {
+  return formData
+    .getAll('documentos')
     .filter((f): f is File => f instanceof File && f.size > 0);
 }
 
@@ -40,7 +52,8 @@ function parseForm(formData: FormData) {
     anio: entero('anio'),
     km: entero('km'),
     bastidor: s('bastidor') || null,
-    mulquilla: s('mulquilla') || null,
+    // El checkbox manda un valor sólo si está tildado.
+    mulquilla: formData.get('mulquilla') != null,
     color: s('color') || null,
     precio_compra: decimal('precio_compra'),
     estado: ESTADOS.some((e) => e.value === estado) ? estado : 'en_dubai',
@@ -57,11 +70,14 @@ export async function crearVehiculo(formData: FormData) {
   const { data, error } = await supabase.from('vehiculos').insert(datos).select('id').single();
   if (error) throw new Error(error.message);
 
-  // Sube las fotos (si hay) a la carpeta del vehículo recién creado.
+  // Sube fotos y documentos (si hay) a la carpeta del vehículo recién creado.
   const archivos = archivosDe(formData);
-  if (archivos.length) {
-    const fotos = await subirFotos(data.id, archivos);
-    await supabase.from('vehiculos').update({ fotos }).eq('id', data.id);
+  const docs = documentosDe(formData);
+  const patch: Record<string, unknown> = {};
+  if (archivos.length) patch.fotos = await subirFotos(data.id, archivos);
+  if (docs.length) patch.documentos = await subirDocumentos(data.id, docs);
+  if (Object.keys(patch).length) {
+    await supabase.from('vehiculos').update(patch).eq('id', data.id);
   }
 
   revalidatePath('/vehiculos');
@@ -75,14 +91,30 @@ export async function actualizarVehiculo(id: string, formData: FormData) {
   }
   const supabase = getSupabaseAdmin();
 
-  // Fotos nuevas se agregan a las existentes (no reemplazan).
+  // Fotos y documentos nuevos se agregan a los existentes (no reemplazan).
   const archivos = archivosDe(formData);
+  const docs = documentosDe(formData);
   const payload: Record<string, unknown> = { ...datos };
-  if (archivos.length) {
-    const nuevas = await subirFotos(id, archivos);
-    const { data: actual } = await supabase.from('vehiculos').select('fotos').eq('id', id).single();
-    const existentes: Foto[] = Array.isArray(actual?.fotos) ? (actual!.fotos as Foto[]) : [];
-    payload.fotos = [...existentes, ...nuevas];
+
+  if (archivos.length || docs.length) {
+    const { data: actual } = await supabase
+      .from('vehiculos')
+      .select('fotos, documentos')
+      .eq('id', id)
+      .single();
+
+    if (archivos.length) {
+      const nuevas = await subirFotos(id, archivos);
+      const existentes: Foto[] = Array.isArray(actual?.fotos) ? (actual!.fotos as Foto[]) : [];
+      payload.fotos = [...existentes, ...nuevas];
+    }
+    if (docs.length) {
+      const nuevos = await subirDocumentos(id, docs);
+      const existentes: Documento[] = Array.isArray(actual?.documentos)
+        ? (actual!.documentos as Documento[])
+        : [];
+      payload.documentos = [...existentes, ...nuevos];
+    }
   }
 
   const { error } = await supabase.from('vehiculos').update(payload).eq('id', id);
@@ -104,6 +136,25 @@ export async function eliminarFotoVehiculo(id: string, path: string) {
   if (error) throw new Error(error.message);
   try {
     await borrarFoto(path);
+  } catch {
+    /* si falla el borrado físico, al menos ya no figura en el registro */
+  }
+
+  revalidatePath(`/vehiculos/${id}`);
+  revalidatePath('/vehiculos');
+}
+
+/** Borra un documento puntual de un vehículo (del storage y del registro). */
+export async function eliminarDocumentoVehiculo(id: string, path: string) {
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase.from('vehiculos').select('documentos').eq('id', id).single();
+  const docs: Documento[] = Array.isArray(data?.documentos) ? (data!.documentos as Documento[]) : [];
+  const restantes = docs.filter((d) => d.path !== path);
+
+  const { error } = await supabase.from('vehiculos').update({ documentos: restantes }).eq('id', id);
+  if (error) throw new Error(error.message);
+  try {
+    await borrarDocumento(path);
   } catch {
     /* si falla el borrado físico, al menos ya no figura en el registro */
   }

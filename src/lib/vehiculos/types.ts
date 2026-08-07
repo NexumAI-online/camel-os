@@ -21,6 +21,19 @@ export interface Foto {
   url: string;
 }
 
+/**
+ * Un documento del vehículo (PDF, imagen, etc.) en el bucket PRIVADO `documentos`.
+ * No guardamos URL: el bucket es privado, la URL firmada se genera al mostrarlo.
+ */
+export interface Documento {
+  /** Ruta dentro del bucket privado (para firmar/borrar). */
+  path: string;
+  /** Nombre original del archivo, para mostrar en la lista. */
+  nombre: string;
+  /** MIME type, si se conoce. */
+  tipo?: string;
+}
+
 export interface Vehiculo {
   id: string;
   marca: string;
@@ -28,12 +41,14 @@ export interface Vehiculo {
   anio: number | null;
   km: number | null;
   bastidor: string | null;
-  mulquilla: string | null;
+  /** ¿Tiene su mulkiya (tarjeta de propiedad UAE)? (columna DB: mulquilla) */
+  mulquilla: boolean;
   color: string | null;
   precio_compra: number | null;
   estado: EstadoVehiculo;
   notas: string | null;
   fotos: Foto[];
+  documentos: Documento[];
   creada_en: string;
   actualizada_en: string;
 }

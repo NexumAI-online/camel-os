@@ -34,6 +34,24 @@ export function FotoDeleteButton() {
   );
 }
 
+/** Botón "×" para eliminar un documento puntual (con confirmación). */
+export function DocDeleteButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      onClick={(e) => {
+        if (!confirm('¿Eliminar este documento?')) e.preventDefault();
+      }}
+      title="Eliminar documento"
+      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-c-md border border-[var(--w12)] text-sm leading-none text-ink-3 transition-colors hover:border-danger hover:text-danger disabled:opacity-50"
+    >
+      ×
+    </button>
+  );
+}
+
 /** Botón de eliminar con confirmación. Va dentro de su propio <form>. */
 export function DeleteButton() {
   const { pending } = useFormStatus();

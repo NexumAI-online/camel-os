@@ -53,9 +53,16 @@ export function VehiculoForm({
         <Campo label="Bastidor (VIN)">
           <input name="bastidor" defaultValue={v?.bastidor ?? ''} className={inputCls} placeholder="JT1234567890" />
         </Campo>
-        <Campo label="Mulquilla">
-          <input name="mulquilla" defaultValue={v?.mulquilla ?? ''} className={inputCls} placeholder="Ref. propiedad UAE" />
-        </Campo>
+        <label className="flex items-center gap-3 self-end rounded-c-md border border-[var(--w10)] bg-[var(--inputDeep)] px-3 py-2.5">
+          <input
+            type="checkbox"
+            name="mulquilla"
+            defaultChecked={v?.mulquilla ?? false}
+            className="h-4 w-4 shrink-0 accent-[var(--accent)]"
+          />
+          <span className="text-sm text-ink-1">Tiene mulkiya</span>
+          <span className="text-xs text-ink-3">(tarjeta de propiedad UAE)</span>
+        </label>
         <Campo label="Color">
           <input name="color" defaultValue={v?.color ?? ''} className={inputCls} placeholder="Blanco" />
         </Campo>
@@ -77,12 +84,22 @@ export function VehiculoForm({
         <textarea name="notas" defaultValue={v?.notas ?? ''} className={`${inputCls} min-h-24 resize-y`} placeholder="Observaciones, reparaciones, specs…" />
       </Campo>
 
-      <Campo label="Agregar fotos (podés elegir varias)" className="mt-4">
+      <Campo label="Agregar fotos (puedes elegir varias)" className="mt-4">
         <input
           type="file"
           name="fotos"
           multiple
           accept="image/*"
+          className="block w-full text-sm text-ink-2 file:mr-3 file:cursor-pointer file:rounded-c-md file:border-0 file:bg-accent/15 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-accent-hi hover:file:bg-accent/25"
+        />
+      </Campo>
+
+      <Campo label="Agregar documentos (PDF, imágenes, etc. — puedes elegir varios)" className="mt-4">
+        <input
+          type="file"
+          name="documentos"
+          multiple
+          accept=".pdf,.doc,.docx,.xls,.xlsx,image/*,application/pdf"
           className="block w-full text-sm text-ink-2 file:mr-3 file:cursor-pointer file:rounded-c-md file:border-0 file:bg-accent/15 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-accent-hi hover:file:bg-accent/25"
         />
       </Campo>

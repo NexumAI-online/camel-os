@@ -47,3 +47,16 @@ alter table public.vehiculos enable row level security;
 -- ── Migración para tablas ya creadas (fotos de vehículos) ──
 -- Si la tabla `vehiculos` ya existía, correr esto para habilitar las fotos.
 alter table public.vehiculos add column if not exists fotos jsonb not null default '[]'::jsonb;
+
+-- ── Migración 2026-08-07 · documentos + mulquilla booleano ──
+-- Documentos (PDF, etc.) en el bucket PRIVADO `documentos`: [{path,nombre,tipo}].
+alter table public.vehiculos add column if not exists documentos jsonb not null default '[]'::jsonb;
+
+-- `mulquilla` pasa de texto (ref. de propiedad) a booleano (¿tiene la tarjeta?).
+-- Convierte lo existente: cualquier texto no vacío se toma como "sí tiene".
+alter table public.vehiculos
+  alter column mulquilla drop default,
+  alter column mulquilla type boolean
+    using (mulquilla is not null and btrim(mulquilla) <> ''),
+  alter column mulquilla set default false,
+  alter column mulquilla set not null;

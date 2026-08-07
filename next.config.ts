@@ -6,8 +6,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium"],
   experimental: {
     serverActions: {
-      // Las fotos de vehículos viajan por Server Actions; el default es 1MB.
-      bodySizeLimit: "15mb",
+      // Fotos y documentos de vehículos viajan por Server Actions; el default es 1MB.
+      bodySizeLimit: "25mb",
     },
   },
 };

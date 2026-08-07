@@ -1,13 +1,15 @@
 import 'server-only';
 
 import { getSupabaseAdmin } from '@/lib/supabase/server';
-import type { Foto, Vehiculo } from './types';
+import type { Documento, Foto, Vehiculo } from './types';
 
-/** Garantiza que `fotos` sea siempre un array (columna puede venir null). */
+/** Garantiza que `fotos`/`documentos` sean arrays y `mulquilla` booleano. */
 function normalizar(row: Record<string, unknown>): Vehiculo {
   return {
     ...(row as unknown as Vehiculo),
     fotos: Array.isArray(row.fotos) ? (row.fotos as Foto[]) : [],
+    documentos: Array.isArray(row.documentos) ? (row.documentos as Documento[]) : [],
+    mulquilla: row.mulquilla === true,
   };
 }
 

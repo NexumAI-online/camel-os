@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, Plus, Search, Car } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Car, FileText } from 'lucide-react';
 
 import { Logo } from '@/components/brand/logo';
 import { ClickableRow } from '@/components/ui/clickable-row';
@@ -90,13 +90,15 @@ export default async function VehiculosPage({
         </div>
       ) : (
         <div className="glass-float mt-6 overflow-x-auto rounded-c-xl">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[900px] text-left text-sm">
             <thead>
               <tr className="border-b border-[var(--w08)] text-xs uppercase tracking-wider text-ink-3">
                 <th className="px-4 py-3 font-medium">Vehículo</th>
                 <th className="px-4 py-3 font-medium">Año</th>
                 <th className="px-4 py-3 font-medium">Km</th>
                 <th className="px-4 py-3 font-medium">Bastidor</th>
+                <th className="px-4 py-3 text-center font-medium">Mulkiya</th>
+                <th className="px-4 py-3 font-medium">Documentos</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 text-right font-medium">Precio (AED)</th>
               </tr>
@@ -125,6 +127,33 @@ export default async function VehiculosPage({
                   <td className="px-4 py-3 text-ink-2">{v.anio ?? '—'}</td>
                   <td className="px-4 py-3 text-ink-2">{v.km != null ? nf.format(v.km) : '—'}</td>
                   <td className="px-4 py-3 font-mono text-xs text-ink-2">{v.bastidor ?? '—'}</td>
+                  <td className="px-4 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={v.mulquilla}
+                      readOnly
+                      aria-label="Mulkiya"
+                      title={v.mulquilla ? 'Tiene mulkiya' : 'Sin mulkiya'}
+                      className="h-4 w-4 accent-[var(--accent)] align-middle"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    {v.documentos.length === 0 ? (
+                      <span className="text-xs text-ink-3">—</span>
+                    ) : (
+                      <div className="flex max-w-[240px] flex-col gap-1">
+                        {v.documentos.slice(0, 2).map((d) => (
+                          <span key={d.path} className="inline-flex items-center gap-1.5 text-xs text-ink-2" title={d.nombre}>
+                            <FileText size={12} className="shrink-0 text-ink-3" />
+                            <span className="truncate">{d.nombre}</span>
+                          </span>
+                        ))}
+                        {v.documentos.length > 2 && (
+                          <span className="text-xs text-ink-3">+{v.documentos.length - 2} más</span>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${ESTADO_CLS[v.estado]}`}>
                       {etiquetaEstado(v.estado)}

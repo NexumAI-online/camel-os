@@ -25,7 +25,7 @@ const FEATURES: Feature[] = [
     key: 'vehiculos',
     titulo: 'Base de Datos',
     descripcion:
-      'Todos los vehículos con marca, modelo, año, kilómetros, bastidor, mulquilla y documentación de origen.',
+      'Todos los vehículos con marca, modelo, año, kilómetros, bastidor, mulkiya y documentación de origen.',
     href: '/vehiculos',
     Icon: Database,
     estado: 'activo',
@@ -57,7 +57,7 @@ export default function Home() {
           Un solo lugar para <span className="text-camel-blue">operarlo todo</span>.
         </h1>
         <p className="mt-4 text-base leading-relaxed text-ink-2">
-          Facturación, base de datos de vehículos y búsqueda de unidades. Elegí un módulo
+          Facturación, base de datos de vehículos y búsqueda de unidades. Elige un módulo
           para empezar.
         </p>
       </section>

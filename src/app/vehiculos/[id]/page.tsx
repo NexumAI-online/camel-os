@@ -1,14 +1,16 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileText, Download } from 'lucide-react';
 
 import { Logo } from '@/components/brand/logo';
 import { VehiculoForm } from '@/components/vehiculos/vehiculo-form';
-import { DeleteButton, FotoDeleteButton } from '@/components/vehiculos/form-buttons';
+import { DeleteButton, FotoDeleteButton, DocDeleteButton } from '@/components/vehiculos/form-buttons';
 import { obtenerVehiculo } from '@/lib/vehiculos/db';
+import { urlFirmadaDocumento } from '@/lib/vehiculos/storage';
 import {
   actualizarVehiculo,
   eliminarFotoVehiculo,
+  eliminarDocumentoVehiculo,
   eliminarVehiculo,
 } from '@/lib/vehiculos/actions';
 
@@ -22,6 +24,14 @@ export default async function EditarVehiculoPage({
   const { id } = await params;
   const vehiculo = await obtenerVehiculo(id);
   if (!vehiculo) notFound();
+
+  // URL firmada (temporal) por documento — el bucket es privado.
+  const documentos = await Promise.all(
+    vehiculo.documentos.map(async (doc) => ({
+      ...doc,
+      href: await urlFirmadaDocumento(doc.path),
+    })),
+  );
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8 sm:px-10">
@@ -57,6 +67,36 @@ export default async function EditarVehiculoPage({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Documentos actuales (descarga + borrado por documento) */}
+      {documentos.length > 0 && (
+        <div className="mt-6">
+          <p className="eyebrow mb-3">Documentos ({documentos.length})</p>
+          <ul className="glass-float divide-y divide-[var(--w06)] overflow-hidden rounded-c-lg">
+            {documentos.map((doc) => (
+              <li key={doc.path} className="flex items-center gap-3 px-4 py-3">
+                <FileText size={18} className="shrink-0 text-ink-3" />
+                <span className="flex-1 truncate text-sm text-ink-1" title={doc.nombre}>
+                  {doc.nombre}
+                </span>
+                {doc.href && (
+                  <a
+                    href={doc.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-2 transition-colors hover:text-accent-hi"
+                  >
+                    <Download size={14} /> Abrir
+                  </a>
+                )}
+                <form action={eliminarDocumentoVehiculo.bind(null, id, doc.path)}>
+                  <DocDeleteButton />
+                </form>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
