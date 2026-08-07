@@ -34,10 +34,8 @@ export interface ResultadoDrive {
   url: string;
 }
 
-export async function subirPdfADrive(
-  pdf: Uint8Array,
-  filename: string,
-): Promise<ResultadoDrive> {
+/** Cliente de Drive autenticado con el refresh token del servidor. */
+function driveClient() {
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_OAUTH_CLIENT_ID,
     process.env.GOOGLE_OAUTH_CLIENT_SECRET,
@@ -45,8 +43,29 @@ export async function subirPdfADrive(
   oauth2.setCredentials({
     refresh_token: process.env.GOOGLE_OAUTH_REFRESH_TOKEN,
   });
+  return google.drive({ version: 'v3', auth: oauth2 });
+}
 
-  const drive = google.drive({ version: 'v3', auth: oauth2 });
+/** Extrae el fileId de un link de Drive (webViewLink o `?id=`). */
+export function driveFileId(url: string): string | null {
+  const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/) ?? url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+
+/** Descarga el contenido (bytes) de un PDF de Drive por su fileId. */
+export async function descargarPdfDeDrive(fileId: string): Promise<Uint8Array> {
+  const res = await driveClient().files.get(
+    { fileId, alt: 'media' },
+    { responseType: 'arraybuffer' },
+  );
+  return new Uint8Array(res.data as ArrayBuffer);
+}
+
+export async function subirPdfADrive(
+  pdf: Uint8Array,
+  filename: string,
+): Promise<ResultadoDrive> {
+  const drive = driveClient();
   const res = await drive.files.create({
     requestBody: {
       name: filename,

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, Plus, FileText, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, Download } from 'lucide-react';
 
 import { Logo } from '@/components/brand/logo';
 import { ClickableRow } from '@/components/ui/clickable-row';
@@ -82,13 +82,13 @@ export default async function FacturacionPage() {
                   <td className="px-4 py-3 text-right">
                     {f.drive_url ? (
                       <a
-                        href={f.drive_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-ink-3 transition-colors hover:text-accent-hi"
-                        title="Abrir PDF en Drive"
+                        href={`/api/facturas/${f.id}/pdf`}
+                        download
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-c-md text-ink-3 transition-colors hover:bg-[var(--w06)] hover:text-accent-hi"
+                        title="Descargar PDF"
+                        aria-label="Descargar PDF"
                       >
-                        <ExternalLink size={14} /> Ver
+                        <Download size={16} />
                       </a>
                     ) : (
                       <span className="text-xs text-ink-3">—</span>
