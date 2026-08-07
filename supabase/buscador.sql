@@ -32,3 +32,10 @@ create index if not exists resultados_encontrado_idx  on public.busqueda_resulta
 create unique index if not exists resultados_url_uniq on public.busqueda_resultados (url) where url is not null;
 
 alter table public.busqueda_resultados enable row level security;
+
+-- ── Migración 2026-08-07 · specs (origen/homologación) ──
+-- Valor canónico: gcc | american | canadian | european | japanese | korean | chinese | other
+alter table public.busqueda_resultados add column if not exists specs text;
+create index if not exists resultados_specs_idx on public.busqueda_resultados (specs);
+create index if not exists resultados_anio_idx  on public.busqueda_resultados (anio);
+create index if not exists resultados_km_idx    on public.busqueda_resultados (km);

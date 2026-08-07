@@ -1,6 +1,6 @@
 import 'server-only';
 
-import puppeteer, { type Browser } from 'puppeteer-core';
+import { abrirNavegador } from '@/lib/browser';
 
 /**
  * Navega a una URL interna (la página que renderiza la factura) y la imprime a
@@ -10,32 +10,7 @@ import puppeteer, { type Browser } from 'puppeteer-core';
  * `@media print` de globals.css: ocultan el chrome de la app y escalan `.print-area`
  * a A4 (transform: scale(1.3336)) — el mismo resultado que Ctrl+P en el navegador.
  * Por eso NO pasamos `scale` acá (lo hace el CSS).
- *
- * Dos entornos:
- *   · Serverless (Vercel/Lambda) → binario de @sparticuz/chromium.
- *   · Local (dev)               → el Chrome instalado (LOCAL_CHROME_PATH / canal 'chrome').
  */
-
-const ES_SERVERLESS =
-  !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-
-async function abrirNavegador(): Promise<Browser> {
-  if (ES_SERVERLESS) {
-    // Import dinámico: solo se carga en serverless, no infla el dev local.
-    const chromium = (await import('@sparticuz/chromium')).default;
-    return puppeteer.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
-  }
-
-  return puppeteer.launch({
-    headless: true,
-    executablePath: process.env.LOCAL_CHROME_PATH || undefined,
-    channel: process.env.LOCAL_CHROME_PATH ? undefined : 'chrome',
-  });
-}
 
 export async function urlToPdf(url: string): Promise<Uint8Array> {
   const navegador = await abrirNavegador();

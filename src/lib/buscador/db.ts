@@ -3,6 +3,10 @@ import 'server-only';
 import { getSupabaseAdmin } from '@/lib/supabase/server';
 import { PORTALES, type FiltrosBuscador, type Resultado } from './types';
 
+function esNum(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v);
+}
+
 /** Lista resultados no descartados, aplicando los filtros del tablero. */
 export async function listarResultados(filtros: FiltrosBuscador = {}): Promise<Resultado[]> {
   const supabase = getSupabaseAdmin();
@@ -19,15 +23,25 @@ export async function listarResultados(filtros: FiltrosBuscador = {}): Promise<R
       q = q.or(`marca.ilike.%${seguro}%,modelo.ilike.%${seguro}%,titulo.ilike.%${seguro}%`);
     }
   }
-  if (filtros.portal && PORTALES.some((p) => p.value === filtros.portal)) {
-    q = q.eq('portal', filtros.portal);
-  }
-  if (typeof filtros.precioMax === 'number' && Number.isFinite(filtros.precioMax)) {
-    q = q.lte('precio', filtros.precioMax);
-  }
-  if (typeof filtros.anioMin === 'number' && Number.isFinite(filtros.anioMin)) {
-    q = q.gte('anio', filtros.anioMin);
-  }
+
+  // Portales (multi-check): sólo valores válidos.
+  const portales = (filtros.portales ?? []).filter((p) => PORTALES.some((x) => x.value === p));
+  if (portales.length) q = q.in('portal', portales);
+
+  // Specs (multi-check).
+  if (filtros.specs && filtros.specs.length) q = q.in('specs', filtros.specs);
+
+  // Rango de año.
+  if (esNum(filtros.anioMin)) q = q.gte('anio', filtros.anioMin);
+  if (esNum(filtros.anioMax)) q = q.lte('anio', filtros.anioMax);
+
+  // Rango de precio (ya convertido a AED en la página).
+  if (esNum(filtros.precioMinAed)) q = q.gte('precio', filtros.precioMinAed);
+  if (esNum(filtros.precioMaxAed)) q = q.lte('precio', filtros.precioMaxAed);
+
+  // Rango de km.
+  if (esNum(filtros.kmMin)) q = q.gte('km', filtros.kmMin);
+  if (esNum(filtros.kmMax)) q = q.lte('km', filtros.kmMax);
 
   const { data, error } = await q;
   if (error) throw new Error(error.message);
