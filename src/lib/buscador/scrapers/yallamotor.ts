@@ -11,7 +11,43 @@ import { correrActor } from '../apify';
  * paginando solo. Devuelve un JSON rico por auto que mapeamos a `ResultadoScrapeado`.
  */
 
-const ACTOR = 'stealth_mode~yallamotor-cars-search-scraper';
+export const ACTOR_YALLA = 'stealth_mode~yallamotor-cars-search-scraper';
+
+/** Input del actor para una marca y tope. */
+export function inputYalla(make: string, tope: number): Record<string, unknown> {
+  return {
+    urls: [urlYallamotor(slugMarca(make))],
+    max_items_per_url: Math.max(tope, 1),
+    ignore_url_failures: true,
+  };
+}
+
+/** Mapea los items del dataset del actor a nuestro modelo. */
+export function mapearYalla(items: Record<string, unknown>[]): ResultadoScrapeado[] {
+  return items.map((it) => {
+    const marca = cap((it.make_name as string) ?? null);
+    const modelo = (it.model_name as string)?.trim() || null;
+    const anio = num(it.year);
+    const titulo =
+      ((it.title as string) ?? '').replace(/^Used\s+/i, '').trim() ||
+      [anio, marca, modelo].filter(Boolean).join(' ') ||
+      null;
+    return {
+      titulo,
+      marca,
+      modelo,
+      anio,
+      km: num(it.km_driven),
+      precio: num(it.price),
+      moneda: ((it.currency as string) || 'AED').trim(),
+      specs: normalizarSpec(it.regional_specs as string),
+      ubicacion: ((it.city as string) || (it.city_name as string) || '').trim() || null,
+      url: urlDe(it),
+      imagen_url: imagenDe(it),
+      vendedor: ((it.auto_company_name as string) || '').trim() || null,
+    };
+  });
+}
 
 function num(v: unknown): number | null {
   const n = typeof v === 'string' ? parseInt(v.replace(/\D/g, ''), 10) : v;
@@ -43,35 +79,6 @@ export async function scrapeYallamotor(
 ): Promise<ResultadoScrapeado[]> {
   const slug = slugMarca(make);
   if (!slug) return [];
-  const tope = Math.max(opts.tope ?? 300, 1);
-
-  const items = await correrActor(ACTOR, {
-    urls: [urlYallamotor(slug)],
-    max_items_per_url: tope,
-    ignore_url_failures: true,
-  });
-
-  return items.map((it) => {
-    const marca = cap((it.make_name as string) ?? null);
-    const modelo = (it.model_name as string)?.trim() || null;
-    const anio = num(it.year);
-    const titulo =
-      ((it.title as string) ?? '').replace(/^Used\s+/i, '').trim() ||
-      [anio, marca, modelo].filter(Boolean).join(' ') ||
-      null;
-    return {
-      titulo,
-      marca,
-      modelo,
-      anio,
-      km: num(it.km_driven),
-      precio: num(it.price),
-      moneda: ((it.currency as string) || 'AED').trim(),
-      specs: normalizarSpec(it.regional_specs as string),
-      ubicacion: ((it.city as string) || (it.city_name as string) || '').trim() || null,
-      url: urlDe(it),
-      imagen_url: imagenDe(it),
-      vendedor: ((it.auto_company_name as string) || '').trim() || null,
-    };
-  });
+  const items = await correrActor(ACTOR_YALLA, inputYalla(make, opts.tope ?? 300));
+  return mapearYalla(items);
 }

@@ -14,6 +14,7 @@ import {
 
 import { Logo } from '@/components/brand/logo';
 import { BotonBuscar } from '@/components/buscador/boton-buscar';
+import { EstadoBusqueda, type RunPortal } from '@/components/buscador/estado-busqueda';
 import { listarResultados } from '@/lib/buscador/db';
 import { descartarResultado, buscarUnidades } from '@/lib/buscador/actions';
 import { SCRAPERS } from '@/lib/buscador/scrapers';
@@ -84,6 +85,15 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
   const fallidos = (one(sp, 'fallidos') ?? '').split(',').filter(Boolean);
   const sinmotor = (one(sp, 'sinmotor') ?? '').split(',').filter(Boolean);
   const sintoken = (one(sp, 'sintoken') ?? '').split(',').filter(Boolean);
+  const sincredito = (one(sp, 'sincredito') ?? '').split(',').filter(Boolean);
+
+  // Corridas async de Apify en curso (para el sondeo progresivo).
+  const runs: RunPortal[] = [];
+  for (const portal of ['yallamotor', 'dubizzle']) {
+    const run = one(sp, `run_${portal}`);
+    if (run) runs.push({ portal, run });
+  }
+  const hayAviso = hayResumen || runs.length > 0 || fallidos.length > 0 || sinmotor.length > 0 || sintoken.length > 0 || sincredito.length > 0;
 
   const hayFiltros =
     specs.length > 0 || anioMin != null || anioMax != null || kmMin != null ||
@@ -157,29 +167,34 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
           <BotonBuscar />
         </div>
         <p className="mt-2 text-xs text-ink-3">
-          Enter para buscar. Trae hasta 300 unidades por tienda; puede tardar 1–2 minutos.
+          Enter para buscar. Dubicars aparece al instante; YallaMotor y Dubizzle se suman solos cuando terminan.
         </p>
       </form>
 
-      {/* Aviso del último rastreo */}
+      {/* Aviso del último rastreo + estado progresivo de las corridas async */}
       {one(sp, 'error') ? (
         <div className="mt-4 flex items-center gap-2 rounded-c-md border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
           <AlertTriangle size={16} /> No se pudo completar la búsqueda. Prueba de nuevo en un momento.
         </div>
-      ) : hayResumen ? (
+      ) : hayAviso ? (
         <div className="mt-4 space-y-2">
-          <div className="flex items-center gap-2 rounded-c-md border border-ok/30 bg-ok/10 px-4 py-3 text-sm text-ok">
-            <CheckCircle2 size={16} />
-            {nuevos && nuevos > 0
-              ? `${nuevos} ${nuevos === 1 ? 'unidad nueva agregada' : 'unidades nuevas agregadas'} · ${vistos} vistas en los portales.`
-              : `Sin novedades: las ${vistos ?? 0} unidades vistas ya estaban en el tablero.`}
-          </div>
+          {hayResumen && (
+            <div className="flex items-center gap-2 rounded-c-md border border-ok/30 bg-ok/10 px-4 py-3 text-sm text-ok">
+              <CheckCircle2 size={16} />
+              {nuevos && nuevos > 0
+                ? `Dubicars: ${nuevos} ${nuevos === 1 ? 'unidad nueva' : 'unidades nuevas'} · ${vistos} vistas.`
+                : `Dubicars: sin novedades (las ${vistos ?? 0} vistas ya estaban).`}
+            </div>
+          )}
+          {/* Chips por portal de Apify (se van completando solos) */}
+          <EstadoBusqueda runs={runs} />
           {(fallidos.length > 0 || sinmotor.length > 0 || sintoken.length > 0) && (
             <div className="flex items-center gap-2 rounded-c-md border border-warn/30 bg-warn/10 px-4 py-3 text-xs text-warn">
               <AlertTriangle size={14} />
               {fallidos.length > 0 && <span>Fallaron: {fallidos.map(etiquetaPortal).join(', ')}. </span>}
               {sinmotor.length > 0 && <span>Sin scraper aún: {sinmotor.map(etiquetaPortal).join(', ')}. </span>}
-              {sintoken.length > 0 && <span>Falta APIFY_TOKEN para: {sintoken.map(etiquetaPortal).join(', ')}.</span>}
+              {sintoken.length > 0 && <span>Falta APIFY_TOKEN para: {sintoken.map(etiquetaPortal).join(', ')}. </span>}
+              {sincredito.length > 0 && <span>Sin crédito de Apify para: {sincredito.map(etiquetaPortal).join(', ')} (recargá en console.apify.com/billing).</span>}
             </div>
           )}
         </div>

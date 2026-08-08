@@ -11,27 +11,18 @@ import { correrActor } from '../apify';
  * El título viene como "Marca - Modelo - Versión"; de ahí sacamos marca/modelo.
  */
 
-const ACTOR = 'powerbox~dubizzle-motors-used-cars-listing-scraper';
+export const ACTOR_DUBIZZLE = 'powerbox~dubizzle-motors-used-cars-listing-scraper';
 
 function num(v: unknown): number | null {
   const n = typeof v === 'string' ? parseInt(v.replace(/\D/g, ''), 10) : v;
   return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null;
 }
 
-export async function scrapeDubizzle(
-  make: string,
-  opts: { tope?: number } = {},
-): Promise<ResultadoScrapeado[]> {
-  const slug = slugMarca(make);
-  if (!slug) return [];
-  const tope = Math.max(opts.tope ?? 300, 1);
+export function inputDubizzle(make: string, tope: number): Record<string, unknown> {
+  return { searchUrl: urlDubizzle(slugMarca(make)), maxItems: Math.max(tope, 1) };
+}
 
-  const items = await correrActor(
-    ACTOR,
-    { searchUrl: urlDubizzle(slug), maxItems: tope },
-    { timeoutSecs: 290 },
-  );
-
+export function mapearDubizzle(items: Record<string, unknown>[]): ResultadoScrapeado[] {
   return items.map((it) => {
     const titulo = ((it.title as string) || '').trim();
     const partes = titulo.split(/\s*-\s*/); // "Porsche - Panamera - Turbo"
@@ -50,4 +41,16 @@ export async function scrapeDubizzle(
       vendedor: null,
     };
   });
+}
+
+export async function scrapeDubizzle(
+  make: string,
+  opts: { tope?: number } = {},
+): Promise<ResultadoScrapeado[]> {
+  const slug = slugMarca(make);
+  if (!slug) return [];
+  const items = await correrActor(ACTOR_DUBIZZLE, inputDubizzle(make, opts.tope ?? 300), {
+    timeoutSecs: 290,
+  });
+  return mapearDubizzle(items);
 }
