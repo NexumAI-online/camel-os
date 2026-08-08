@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { FileText, Database, Search, ArrowRight, LogOut } from 'lucide-react';
+import { FileText, Database, Search, ArrowRight, LogOut, Users } from 'lucide-react';
 import { Logo } from '@/components/brand/logo';
 import { cerrarSesion } from './login/actions';
 
@@ -40,6 +40,15 @@ const FEATURES: Feature[] = [
     Icon: Search,
     estado: 'activo',
   },
+  {
+    key: 'clientes',
+    titulo: 'Clientes',
+    descripcion:
+      'Alta de clientes (empresa o particular) con dirección, CIF y contacto, para asociarlos a facturas y vehículos.',
+    href: '/clientes',
+    Icon: Users,
+    estado: 'activo',
+  },
 ];
 
 export default function Home() {
@@ -75,7 +84,7 @@ export default function Home() {
       </section>
 
       {/* Módulos */}
-      <section className="mt-12 grid grid-cols-1 gap-5 sm:mt-16 sm:grid-cols-3">
+      <section className="mt-12 grid grid-cols-1 gap-5 sm:mt-16 sm:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map(({ key, titulo, descripcion, href, Icon, estado }, i) => {
           const activo = estado === 'activo';
           const inner = (

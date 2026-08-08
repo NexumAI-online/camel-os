@@ -1,4 +1,5 @@
 import { ESTADOS, type Vehiculo } from '@/lib/vehiculos/types';
+import type { ClienteOpcion } from '@/lib/clientes/types';
 import { SubmitButton } from './form-buttons';
 
 const inputCls =
@@ -29,10 +30,12 @@ export function VehiculoForm({
   action,
   vehiculo,
   submitLabel,
+  clientes = [],
 }: {
   action: (formData: FormData) => void | Promise<void>;
   vehiculo?: Vehiculo;
   submitLabel: string;
+  clientes?: ClienteOpcion[];
 }) {
   const v = vehiculo;
   return (
@@ -74,6 +77,17 @@ export function VehiculoForm({
             {ESTADOS.map((e) => (
               <option key={e.value} value={e.value}>
                 {e.label}
+              </option>
+            ))}
+          </select>
+        </Campo>
+        <Campo label="Cliente asociado">
+          <select name="cliente_id" defaultValue={v?.cliente_id ?? ''} className={inputCls}>
+            <option value="">— Sin cliente —</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+                {c.cif ? ` · ${c.cif}` : ''}
               </option>
             ))}
           </select>

@@ -4,8 +4,12 @@ import { ArrowLeft } from 'lucide-react';
 import { Logo } from '@/components/brand/logo';
 import { VehiculoForm } from '@/components/vehiculos/vehiculo-form';
 import { crearVehiculo } from '@/lib/vehiculos/actions';
+import { listarClientesOpciones } from '@/lib/clientes/db';
 
-export default function NuevoVehiculoPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function NuevoVehiculoPage() {
+  const clientes = await listarClientesOpciones();
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8 sm:px-10">
       <header className="flex items-center justify-between">
@@ -26,7 +30,7 @@ export default function NuevoVehiculoPage() {
       </div>
 
       <div className="mt-6">
-        <VehiculoForm action={crearVehiculo} submitLabel="Guardar vehículo" />
+        <VehiculoForm action={crearVehiculo} submitLabel="Guardar vehículo" clientes={clientes} />
       </div>
     </main>
   );

@@ -71,6 +71,8 @@ export interface Vehiculo {
   notas: string | null;
   fotos: Foto[];
   documentos: Documento[];
+  /** Cliente asociado (dueño/comprador), opcional. El nombre se resuelve aparte. */
+  cliente_id: string | null;
   creada_en: string;
   actualizada_en: string;
 }

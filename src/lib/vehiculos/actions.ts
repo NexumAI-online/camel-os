@@ -58,7 +58,13 @@ function parseForm(formData: FormData) {
     precio_compra: decimal('precio_compra'),
     estado: ESTADOS.some((e) => e.value === estado) ? estado : 'en_dubai',
     notas: s('notas') || null,
+    cliente_id: s('cliente_id') || null,
   };
+}
+
+/** ¿El error es por la columna cliente_id todavía inexistente (ALTER pendiente)? */
+function faltaColumnaCliente(msg: string): boolean {
+  return /cliente_id/.test(msg);
 }
 
 export async function crearVehiculo(formData: FormData) {
@@ -67,8 +73,13 @@ export async function crearVehiculo(formData: FormData) {
     throw new Error('Marca y modelo son obligatorios.');
   }
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.from('vehiculos').insert(datos).select('id').single();
-  if (error) throw new Error(error.message);
+  let res = await supabase.from('vehiculos').insert(datos).select('id').single();
+  if (res.error && faltaColumnaCliente(res.error.message)) {
+    const { cliente_id: _omit, ...sinCliente } = datos;
+    res = await supabase.from('vehiculos').insert(sinCliente).select('id').single();
+  }
+  if (res.error) throw new Error(res.error.message);
+  const data = res.data;
 
   // Sube fotos y documentos (si hay) a la carpeta del vehículo recién creado.
   const archivos = archivosDe(formData);
@@ -117,8 +128,12 @@ export async function actualizarVehiculo(id: string, formData: FormData) {
     }
   }
 
-  const { error } = await supabase.from('vehiculos').update(payload).eq('id', id);
-  if (error) throw new Error(error.message);
+  let res = await supabase.from('vehiculos').update(payload).eq('id', id);
+  if (res.error && faltaColumnaCliente(res.error.message)) {
+    const { cliente_id: _omit, ...sinCliente } = payload;
+    res = await supabase.from('vehiculos').update(sinCliente).eq('id', id);
+  }
+  if (res.error) throw new Error(res.error.message);
 
   revalidatePath('/vehiculos');
   revalidatePath(`/vehiculos/${id}`);

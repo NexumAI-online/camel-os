@@ -6,6 +6,7 @@ import { Logo } from '@/components/brand/logo';
 import { VehiculoForm } from '@/components/vehiculos/vehiculo-form';
 import { DeleteButton, FotoDeleteButton, DocDeleteButton } from '@/components/vehiculos/form-buttons';
 import { obtenerVehiculo } from '@/lib/vehiculos/db';
+import { listarClientesOpciones } from '@/lib/clientes/db';
 import { urlFirmadaDocumento } from '@/lib/vehiculos/storage';
 import {
   actualizarVehiculo,
@@ -22,7 +23,10 @@ export default async function EditarVehiculoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const vehiculo = await obtenerVehiculo(id);
+  const [vehiculo, clientes] = await Promise.all([
+    obtenerVehiculo(id),
+    listarClientesOpciones(),
+  ]);
   if (!vehiculo) notFound();
 
   // URL firmada (temporal) por documento — el bucket es privado.
@@ -105,6 +109,7 @@ export default async function EditarVehiculoPage({
           action={actualizarVehiculo.bind(null, id)}
           vehiculo={vehiculo}
           submitLabel="Guardar cambios"
+          clientes={clientes}
         />
       </div>
 

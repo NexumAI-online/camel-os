@@ -15,6 +15,7 @@ import type {
   Moneda,
   TipoFactura,
 } from '@/lib/invoice/types';
+import type { ClienteOpcion } from '@/lib/clientes/types';
 
 let contador = 0;
 const nuevoId = () => `l${++contador}`;
@@ -55,11 +56,14 @@ function fechaHoyEspana(): string {
 export function InvoiceForm({
   initial,
   facturaId,
+  clientes = [],
 }: {
   /** Datos iniciales para editar una factura existente. */
   initial?: Factura;
   /** Id de la factura en edición (si se envía, "Generar" actualiza en vez de crear). */
   facturaId?: string;
+  /** Clientes existentes para autocompletar los datos. */
+  clientes?: ClienteOpcion[];
 } = {}) {
   const router = useRouter();
   const editando = !!facturaId;
@@ -74,6 +78,16 @@ export function InvoiceForm({
   const [clienteNombre, setClienteNombre] = useState(initial?.cliente.nombre ?? '');
   const [clienteId, setClienteId] = useState(initial?.cliente.identificacion ?? '');
   const [clienteDireccion, setClienteDireccion] = useState(initial?.cliente.direccion ?? '');
+  const [clienteSel, setClienteSel] = useState('');
+
+  function elegirCliente(id: string) {
+    setClienteSel(id);
+    const c = clientes.find((x) => x.id === id);
+    if (!c) return;
+    setClienteNombre(c.nombre);
+    setClienteId(c.cif ?? '');
+    setClienteDireccion(c.direccion ?? '');
+  }
   const [lineas, setLineas] = useState<LineaFactura[]>(() =>
     initial && initial.lineas.length
       ? initial.lineas.map((l) => ({ ...l, id: l.id || nuevoId() }))
@@ -302,6 +316,25 @@ export function InvoiceForm({
           {/* Cliente */}
           <div className="mt-8">
             <p className="eyebrow">Factura a</p>
+            {clientes.length > 0 && (
+              <div className="mt-3">
+                <Campo label="Cliente existente (autocompleta los datos)">
+                  <select
+                    className={inputCls}
+                    value={clienteSel}
+                    onChange={(e) => elegirCliente(e.target.value)}
+                  >
+                    <option value="">— Cargar manualmente —</option>
+                    {clientes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                        {c.cif ? ` · ${c.cif}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+              </div>
+            )}
             <div className="mt-3 grid grid-cols-2 gap-4">
               <Campo label="Nombre / Razón social">
                 <input

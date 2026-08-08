@@ -10,6 +10,7 @@ function normalizar(row: Record<string, unknown>): Vehiculo {
     fotos: Array.isArray(row.fotos) ? (row.fotos as Foto[]) : [],
     documentos: Array.isArray(row.documentos) ? (row.documentos as Documento[]) : [],
     mulquilla: row.mulquilla === true,
+    cliente_id: (row.cliente_id as string) ?? null,
   };
 }
 

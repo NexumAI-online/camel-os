@@ -5,6 +5,7 @@ import { Logo } from '@/components/brand/logo';
 import { ClickableRow } from '@/components/ui/clickable-row';
 import { ControlesVehiculos } from '@/components/vehiculos/controles-vehiculos';
 import { listarVehiculos, listarMarcas } from '@/lib/vehiculos/db';
+import { listarClientesOpciones } from '@/lib/clientes/db';
 import { etiquetaEstado, type EstadoVehiculo, type Vehiculo } from '@/lib/vehiculos/types';
 
 export const dynamic = 'force-dynamic';
@@ -47,7 +48,7 @@ export default async function VehiculosPage({
   }>;
 }) {
   const sp = await searchParams;
-  const [vehiculos, marcas] = await Promise.all([
+  const [vehiculos, marcas, clientes] = await Promise.all([
     listarVehiculos({
       q: sp.q,
       marca: sp.marca,
@@ -56,7 +57,9 @@ export default async function VehiculosPage({
       orden: sp.orden,
     }),
     listarMarcas(),
+    listarClientesOpciones(),
   ]);
+  const nombreCliente = new Map(clientes.map((c) => [c.id, c.nombre]));
 
   const vista = sp.vista === 'galeria' ? 'galeria' : 'lista';
   const hayFiltros = !!(sp.q || sp.marca || sp.estado || sp.mulkiya);
@@ -147,10 +150,15 @@ export default async function VehiculosPage({
                 <div className="mt-3">
                   <DocsChips docs={v.documentos} />
                 </div>
-                <div className="mt-3 flex items-end justify-between">
+                <div className="mt-3 flex items-end justify-between gap-2">
                   <span className="font-display text-lg font-bold text-accent-hi">
                     {v.precio_compra != null ? `${nf.format(v.precio_compra)} AED` : '—'}
                   </span>
+                  {v.cliente_id && nombreCliente.get(v.cliente_id) && (
+                    <span className="truncate text-xs text-ink-3" title={nombreCliente.get(v.cliente_id)}>
+                      {nombreCliente.get(v.cliente_id)}
+                    </span>
+                  )}
                 </div>
               </div>
             </Link>
@@ -168,6 +176,7 @@ export default async function VehiculosPage({
                 <th className="px-4 py-3 font-medium">Bastidor</th>
                 <th className="px-4 py-3 text-center font-medium">Mulkiya</th>
                 <th className="px-4 py-3 font-medium">Documentos</th>
+                <th className="px-4 py-3 font-medium">Cliente</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 text-right font-medium">Precio (AED)</th>
               </tr>
@@ -208,6 +217,9 @@ export default async function VehiculosPage({
                   </td>
                   <td className="px-4 py-3">
                     <DocsChips docs={v.documentos} />
+                  </td>
+                  <td className="px-4 py-3 text-ink-2">
+                    {v.cliente_id ? (nombreCliente.get(v.cliente_id) ?? '—') : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${ESTADO_CLS[v.estado]}`}>
