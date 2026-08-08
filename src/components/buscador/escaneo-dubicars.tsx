@@ -17,7 +17,9 @@ function filtrosQS(sp: URLSearchParams): string {
 }
 
 const nf = new Intl.NumberFormat('es-ES');
-const MAX_PAGINAS = 20; // tope de seguridad (coincide con el server)
+// Techo del bucle cliente, por encima del techo real del server (que corta con
+// `hayMas`). El escaneo se detiene solo al agotar la marca, no en un nº fijo.
+const MAX_PAGINAS = 250;
 
 type Fase = 'escaneando' | 'listo' | 'error';
 
@@ -52,6 +54,7 @@ export function EscaneoDubicars({ make }: { make: string }) {
           coincidentes?: number;
           totalMarca?: number | null;
           hayMas?: boolean;
+          topeAlcanzado?: boolean;
         };
         try {
           const res = await fetch(
@@ -78,7 +81,7 @@ export function EscaneoDubicars({ make }: { make: string }) {
         router.refresh(); // el tablero muestra las nuevas filas
 
         if (!j.hayMas) {
-          if (page >= MAX_PAGINAS) setTope(true);
+          if (j.topeAlcanzado) setTope(true); // cortado por el techo, no fin de marca
           setFase('listo');
           return;
         }

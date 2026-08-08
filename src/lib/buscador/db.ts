@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getSupabaseAdmin } from '@/lib/supabase/server';
 import { PORTALES, type FiltrosBuscador, type Resultado } from './types';
+import { LIMITE_TABLERO } from './constants';
 
 function esNum(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v);
@@ -11,13 +12,13 @@ function esNum(v: unknown): v is number {
 export async function listarResultados(filtros: FiltrosBuscador = {}): Promise<Resultado[]> {
   const supabase = getSupabaseAdmin();
   // Límite de visualización: el tablero pagina en cliente ("Cargar más") sobre
-  // esta lista. 600 = tope del escaneo por marca; evita mandar miles de filas.
+  // esta lista. Alto para mostrar TODAS las coincidencias de una búsqueda filtrada.
   let q = supabase
     .from('busqueda_resultados')
     .select('*')
     .eq('descartado', false)
     .order('encontrado_en', { ascending: false })
-    .limit(600);
+    .limit(LIMITE_TABLERO);
 
   const texto = filtros.q?.trim();
   if (texto) {

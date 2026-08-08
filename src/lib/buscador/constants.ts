@@ -9,11 +9,20 @@ export const POR_PAGINA = 100;
 export const INCREMENTO = 50;
 
 /**
- * Tope de seguridad del escaneo de Dubicars: hasta 20 páginas (~600 coches) por
- * marca. En marcas enormes (Mercedes ~1.900) evita escaneos de minutos; el
- * contador muestra "de las primeras N escaneadas" + el total de la marca.
+ * El escaneo de Dubicars va hasta AGOTAR la marca (se detiene solo cuando el
+ * portal devuelve una página vacía) → trae TODAS las coincidencias, pase lo que
+ * pase. Esto es solo un techo de seguridad para no entrar en bucle en un caso
+ * patológico: 200 páginas ≈ 6.000 coches, muy por encima de cualquier marca real
+ * (Mercedes ~1.900 = ~63 págs). Si alguna vez se toca, el chip lo avisa.
  */
-export const MAX_PAGINAS_DUBICARS = 20;
+export const MAX_PAGINAS_DUBICARS = 200;
+
+/**
+ * Máximo de filas que el tablero manda al cliente para paginar ("Cargar más").
+ * Alto para que una búsqueda filtrada (p. ej. "BMW americana") las muestre TODAS;
+ * el escaneo guarda solo lo que coincide, así que en la práctica no se acerca.
+ */
+export const LIMITE_TABLERO = 2000;
 
 /** Coches por corrida de Apify (YallaMotor/Dubizzle): fijo, ya no lo elige el usuario. */
 export const TOPE_APIFY = 100;

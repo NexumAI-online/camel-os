@@ -10,7 +10,7 @@ import { listarResultados } from '@/lib/buscador/db';
 import { descartarResultado, buscarUnidades, filtrarTablero } from '@/lib/buscador/actions';
 import { SCRAPERS } from '@/lib/buscador/scrapers';
 import { PORTALES, etiquetaPortal, type Portal } from '@/lib/buscador/types';
-import { SPECS, MONEDAS, aAed } from '@/lib/buscador/constants';
+import { SPECS, MONEDAS, aAed, LIMITE_TABLERO } from '@/lib/buscador/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,7 +101,7 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
           Unidades en Dubái
         </h1>
         <p className="mt-1 text-sm text-ink-3">
-          {resultados.length === 600 ? '600+' : resultados.length}{' '}
+          {resultados.length >= LIMITE_TABLERO ? `${LIMITE_TABLERO}+` : resultados.length}{' '}
           {resultados.length === 1 ? 'coincide' : 'coinciden'} · Dubicars · YallaMotor
         </p>
       </div>

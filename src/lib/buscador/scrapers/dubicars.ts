@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { ResultadoScrapeado } from '../types';
-import { normalizarSpec } from '../constants';
+import { normalizarSpec, MAX_PAGINAS_DUBICARS } from '../constants';
 import { slugMarca } from '../marcas';
 
 /**
@@ -21,7 +21,15 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-const MAX_PAGINAS = 20; // ~30 unidades por página → hasta ~600
+const MAX_PAGINAS = 20; // (solo para el scrapeDubicars legacy)
+
+/**
+ * Coches por página de Dubicars (constante del portal). Sirve para saber cuál es
+ * la última página a partir del total: `ceil(total / 30)`. Es clave porque
+ * Dubicars, si pides una página MÁS ALLÁ de la última, REPITE la última en vez
+ * de devolver vacío — así que no podemos detectar el fin por "página vacía".
+ */
+const PAGINA_DUBICARS = 30;
 
 /** Campos que nos interesan del JSON embebido en cada tarjeta. */
 interface MixpanelDetail {
@@ -129,10 +137,12 @@ function parsearPagina(html: string): ResultadoScrapeado[] {
 /** Resultado de escanear UNA página de Dubicars (para la carga progresiva). */
 export interface PaginaDubicars {
   filas: ResultadoScrapeado[];
-  /** Total de la marca que anuncia el portal (solo fiable en la página 1). */
+  /** Total de la marca que anuncia el portal (viene en cada página). */
   totalMarca: number | null;
-  /** ¿Puede haber más páginas? (esta trajo coches y no llegamos al tope). */
+  /** ¿Quedan más páginas de la marca por traer? */
   hayMas: boolean;
+  /** Se cortó por el techo de seguridad (no por fin de marca) → faltan coches. */
+  topeAlcanzado: boolean;
 }
 
 /**
@@ -144,7 +154,7 @@ export interface PaginaDubicars {
  */
 export async function paginaDubicars(make: string, page: number): Promise<PaginaDubicars> {
   const slug = slugMarca(make);
-  if (!slug) return { filas: [], totalMarca: null, hayMas: false };
+  if (!slug) return { filas: [], totalMarca: null, hayMas: false, topeAlcanzado: false };
 
   const url =
     `https://www.dubicars.com/uae/used/${encodeURIComponent(slug)}` +
@@ -156,21 +166,29 @@ export async function paginaDubicars(make: string, page: number): Promise<Pagina
   });
   if (!res.ok) {
     if (page === 1) throw new Error(`Dubicars respondió ${res.status}`);
-    return { filas: [], totalMarca: null, hayMas: false };
+    return { filas: [], totalMarca: null, hayMas: false, topeAlcanzado: false };
   }
 
   // Marca desconocida: Dubicars redirige el slug a `/uae/used` (el listado
   // genérico de TODAS las marcas). Lo detectamos por la URL final y devolvemos
   // vacío, para no ensuciar el tablero con coches de otras marcas.
   if (!res.url.includes(`/used/${slug}`)) {
-    return { filas: [], totalMarca: 0, hayMas: false };
+    return { filas: [], totalMarca: 0, hayMas: false, topeAlcanzado: false };
   }
 
   const html = await res.text();
   const filas = parsearPagina(html);
-  const totalMarca = page === 1 ? parsearTotalMarca(html) : null;
-  const hayMas = filas.length > 0 && page < MAX_PAGINAS;
-  return { filas, totalMarca, hayMas };
+  const totalMarca = parsearTotalMarca(html);
+
+  // La última página es `ceil(total / 30)`. Seguimos mientras no la hayamos
+  // alcanzado (y sin pasar el techo de seguridad). Si no hay total, caemos al
+  // techo. NO usamos "página vacía" porque Dubicars repite la última.
+  const ultima = totalMarca ? Math.ceil(totalMarca / PAGINA_DUBICARS) : MAX_PAGINAS_DUBICARS;
+  const faltanPaginas = page < ultima;
+  const hayMas = filas.length > 0 && faltanPaginas && page < MAX_PAGINAS_DUBICARS;
+  const topeAlcanzado = filas.length > 0 && faltanPaginas && page >= MAX_PAGINAS_DUBICARS;
+
+  return { filas, totalMarca, hayMas, topeAlcanzado };
 }
 
 export async function scrapeDubicars(

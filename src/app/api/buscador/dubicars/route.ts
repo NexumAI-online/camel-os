@@ -16,8 +16,9 @@ export const dynamic = 'force-dynamic';
  *   cochesPagina  coches que trajo la página (antes de filtrar)
  *   coincidentes  cuántos de esa página cumplen los filtros
  *   insertados    cuántos se guardaron nuevos (el resto ya estaban)
- *   totalMarca    total del inventario de la marca (solo en la página 1)
- *   hayMas        si conviene pedir la página siguiente
+ *   totalMarca    total del inventario de la marca (viene en cada página)
+ *   hayMas        si quedan más páginas de la marca por traer
+ *   topeAlcanzado se cortó por el techo de seguridad (faltan coches)
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const { filas, totalMarca, hayMas } = await paginaDubicars(make, page);
+    const { filas, totalMarca, hayMas, topeAlcanzado } = await paginaDubicars(make, page);
     const r = await ingestarResultados('dubicars', filas, filtrosDeQuery(url.searchParams));
     return Response.json({
       estado: 'ok',
@@ -39,6 +40,7 @@ export async function GET(req: Request) {
       insertados: r.insertados,
       totalMarca,
       hayMas,
+      topeAlcanzado,
     });
   } catch (e) {
     return Response.json({ estado: 'error', motivo: (e as Error).message }, { status: 502 });
