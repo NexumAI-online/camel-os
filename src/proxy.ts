@@ -3,13 +3,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { COOKIE_SESION, sesionValida } from '@/lib/auth';
 
 /**
- * Portón de acceso: exige sesión para todo el panel. Quedan públicas:
+ * Portón de acceso (convención `proxy` de Next 16, antes `middleware`): exige
+ * sesión para todo el panel. Quedan públicas:
  *   · /login             → el propio formulario de acceso.
  *   · /factura/render    → página interna que Puppeteer imprime a PDF (la abre
  *                          el servidor sin cookie; sólo renderiza datos de la URL).
  * Los assets de Next (_next, imágenes) se excluyen en el matcher.
  */
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (pathname.startsWith('/login') || pathname.startsWith('/factura/render')) {
