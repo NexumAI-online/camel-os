@@ -1,10 +1,9 @@
 import Link from 'next/link';
-import { ArrowLeft, Plus, Search, Users, Building2, User } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Users } from 'lucide-react';
 
 import { Logo } from '@/components/brand/logo';
-import { ClickableRow } from '@/components/ui/clickable-row';
+import { TablaClientes } from '@/components/clientes/tabla-clientes';
 import { listarClientes } from '@/lib/clientes/db';
-import { etiquetaTipoCliente } from '@/lib/clientes/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,39 +75,7 @@ export default async function ClientesPage({
           )}
         </div>
       ) : (
-        <div className="glass-float mt-6 overflow-x-auto rounded-c-xl">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-[var(--w08)] text-xs uppercase tracking-wider text-ink-3">
-                <th className="px-4 py-3 font-medium">Nombre</th>
-                <th className="px-4 py-3 font-medium">Tipo</th>
-                <th className="px-4 py-3 font-medium">CIF / NIF</th>
-                <th className="px-4 py-3 font-medium">Email</th>
-                <th className="px-4 py-3 font-medium">Teléfono</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientes.map((c) => (
-                <ClickableRow key={c.id} href={`/clientes/${c.id}`} className="group border-b border-[var(--w06)] last:border-0 transition-colors hover:bg-[var(--w04)]">
-                  <td className="px-4 py-3">
-                    <Link href={`/clientes/${c.id}`} className="font-semibold text-ink-1 group-hover:text-accent-hi">
-                      {c.nombre}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1.5 text-ink-2">
-                      {c.tipo === 'business' ? <Building2 size={14} /> : <User size={14} />}
-                      {etiquetaTipoCliente(c.tipo)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-ink-2">{c.cif ?? '—'}</td>
-                  <td className="px-4 py-3 text-ink-2">{c.email ?? '—'}</td>
-                  <td className="px-4 py-3 text-ink-2">{c.telefono ?? '—'}</td>
-                </ClickableRow>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <TablaClientes clientes={clientes} />
       )}
     </main>
   );

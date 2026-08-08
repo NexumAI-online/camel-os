@@ -51,3 +51,13 @@ export async function eliminarCliente(id: string) {
   revalidatePath('/clientes');
   redirect('/clientes');
 }
+
+/** Borra varios clientes a la vez (selección múltiple en el listado). */
+export async function eliminarClientes(ids: string[]) {
+  const limpio = ids.filter(Boolean);
+  if (limpio.length === 0) return;
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.from('clientes').delete().in('id', limpio);
+  if (error) throw new Error(error.message);
+  revalidatePath('/clientes');
+}
