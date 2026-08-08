@@ -1,151 +1,77 @@
 import 'server-only';
 
-import type { Browser } from 'puppeteer-core';
-
 import type { ResultadoScrapeado } from '../types';
 import { normalizarSpec } from '../constants';
-import { conNavegador } from '@/lib/browser';
+import { slugMarca, urlYallamotor } from '../marcas';
+import { correrActor } from '../apify';
 
 /**
- * Scraper de YallaMotor (Feature 3 · motor worker in-repo).
- *
- * YallaMotor bloquea el `fetch` de Node (responde 403 por fingerprint TLS),
- * así que cargamos la página con Chrome real (Puppeteer, mismo motor que los
- * PDFs). La página incluye un bloque JSON-LD `ItemList` (schema.org) con cada
- * auto como Product/Car: name, url, brand, model, año, precio+moneda, km, color,
- * y las specs dentro del texto de `description`. Parsear ese JSON-LD es mucho
- * más estable que los selectores del HTML.
- *
- * URL por marca:  https://uae.yallamotor.com/used-cars/{make}
- * Paginación:     ?page=N
+ * Scraper de YallaMotor vía Apify (actor `stealth_mode/yallamotor-cars-search-scraper`).
+ * YallaMotor bloquea el fetch de Node; Apify usa proxies/navegador y trae todo,
+ * paginando solo. Devuelve un JSON rico por auto que mapeamos a `ResultadoScrapeado`.
  */
 
-const UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
-const MAX_PAGINAS = 5;
-
-interface CarItem {
-  name?: string;
-  url?: string;
-  brand?: { name?: string } | string;
-  model?: string;
-  vehicleModelDate?: string;
-  description?: string;
-  image?: string;
-  color?: string;
-  mileageFromOdometer?: { value?: number };
-  offers?: { price?: number; priceCurrency?: string };
-}
+const ACTOR = 'stealth_mode~yallamotor-cars-search-scraper';
 
 function num(v: unknown): number | null {
   const n = typeof v === 'string' ? parseInt(v.replace(/\D/g, ''), 10) : v;
   return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function marcaDe(brand: CarItem['brand']): string | null {
-  const raw = typeof brand === 'string' ? brand : brand?.name;
-  if (!raw) return null;
-  // "porsche" → "Porsche"
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
+function cap(s?: string | null): string | null {
+  const t = (s ?? '').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : null;
 }
 
-/** Saca las specs y la ubicación del texto de `description`. */
-function specsDe(desc?: string): string | null {
-  if (!desc) return null;
-  const m = desc.match(/([A-Za-z]+)\s+Specs?/i);
-  return normalizarSpec(m ? m[1] : null);
-}
-function ubicacionDe(desc?: string): string | null {
-  if (!desc) return null;
-  const m = desc.match(/for sale in ([A-Za-z\s]+?)[:,]/i);
-  return m ? m[1].trim() : null;
+function imagenDe(it: Record<string, unknown>): string | null {
+  const cands = [it.slideshow_picture, it.mobile_listing_main];
+  for (const c of cands) if (typeof c === 'string' && c.startsWith('http')) return c;
+  const pics = it.pictures;
+  if (Array.isArray(pics) && typeof pics[0] === 'string') return pics[0] as string;
+  return null;
 }
 
-/** Extrae los autos del `ItemList` JSON-LD de una página. */
-function parsearPagina(html: string): ResultadoScrapeado[] {
-  const bloques = html.match(
-    /<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi,
-  );
-  if (!bloques) return [];
-
-  for (const bloque of bloques) {
-    const jsonTxt = bloque.replace(/<script[^>]*>|<\/script>/gi, '').trim();
-    let data: unknown;
-    try {
-      data = JSON.parse(jsonTxt);
-    } catch {
-      continue;
-    }
-    const obj = data as { '@type'?: string; itemListElement?: Array<{ item?: CarItem }> };
-    if (obj['@type'] !== 'ItemList' || !Array.isArray(obj.itemListElement)) continue;
-
-    return obj.itemListElement
-      .map((el) => el.item)
-      .filter((it): it is CarItem => !!it && !!it.url)
-      .map((it) => ({
-        titulo: it.name?.replace(/^Used\s+/i, '').trim() || null,
-        marca: marcaDe(it.brand),
-        modelo: it.model?.trim() || null,
-        anio: num(it.vehicleModelDate),
-        km: num(it.mileageFromOdometer?.value),
-        precio: num(it.offers?.price),
-        moneda: it.offers?.priceCurrency?.trim() || 'AED',
-        specs: specsDe(it.description),
-        ubicacion: ubicacionDe(it.description),
-        url: it.url ?? null,
-        imagen_url: it.image ?? null,
-        vendedor: null,
-      }));
-  }
-
-  return [];
+function urlDe(it: Record<string, unknown>): string | null {
+  const u = (it.complete_url ?? it.from_url) as string | undefined;
+  if (!u) return null;
+  return u.startsWith('http') ? u : `https://uae.yallamotor.com${u.startsWith('/') ? '' : '/'}${u}`;
 }
 
-/**
- * Rastrea YallaMotor para una marca y devuelve los anuncios encontrados.
- * @param make  Marca a buscar (ej. "Porsche", "Mercedes Benz").
- * @param opts.paginas  Cuántas páginas recorrer (1–5, default 2).
- */
 export async function scrapeYallamotor(
   make: string,
-  opts: { paginas?: number } = {},
+  opts: { tope?: number } = {},
 ): Promise<ResultadoScrapeado[]> {
-  const slug = make.trim().toLowerCase().replace(/\s+/g, '-');
+  const slug = slugMarca(make);
   if (!slug) return [];
-  const paginas = Math.min(Math.max(opts.paginas ?? 2, 1), MAX_PAGINAS);
+  const tope = Math.max(opts.tope ?? 300, 1);
 
-  // Un solo navegador para todas las páginas (se cierra al final).
-  return conNavegador(async (navegador: Browser) => {
-    const pagina = await navegador.newPage();
-    await pagina.setUserAgent(UA);
+  const items = await correrActor(ACTOR, {
+    urls: [urlYallamotor(slug)],
+    max_items_per_url: tope,
+    ignore_url_failures: true,
+  });
 
-    const out: ResultadoScrapeado[] = [];
-    const vistos = new Set<string>();
-
-    for (let page = 1; page <= paginas; page++) {
-      const url =
-        `https://uae.yallamotor.com/used-cars/${encodeURIComponent(slug)}` +
-        (page > 1 ? `?page=${page}` : '');
-
-      const resp = await pagina.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-      if (!resp || !resp.ok()) {
-        if (page === 1) throw new Error(`YallaMotor respondió ${resp?.status() ?? '??'}`);
-        break;
-      }
-
-      const filas = parsearPagina(await pagina.content());
-      if (filas.length === 0) break;
-
-      for (const f of filas) {
-        const clave = f.url ?? f.titulo ?? '';
-        if (clave && vistos.has(clave)) continue;
-        if (clave) vistos.add(clave);
-        out.push(f);
-      }
-    }
-
-    return out;
+  return items.map((it) => {
+    const marca = cap((it.make_name as string) ?? null);
+    const modelo = (it.model_name as string)?.trim() || null;
+    const anio = num(it.year);
+    const titulo =
+      ((it.title as string) ?? '').replace(/^Used\s+/i, '').trim() ||
+      [anio, marca, modelo].filter(Boolean).join(' ') ||
+      null;
+    return {
+      titulo,
+      marca,
+      modelo,
+      anio,
+      km: num(it.km_driven),
+      precio: num(it.price),
+      moneda: ((it.currency as string) || 'AED').trim(),
+      specs: normalizarSpec(it.regional_specs as string),
+      ubicacion: ((it.city as string) || (it.city_name as string) || '').trim() || null,
+      url: urlDe(it),
+      imagen_url: imagenDe(it),
+      vendedor: ((it.auto_company_name as string) || '').trim() || null,
+    };
   });
 }

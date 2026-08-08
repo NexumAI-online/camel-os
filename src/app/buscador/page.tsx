@@ -83,6 +83,7 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
   const hayResumen = one(sp, 'vistos') != null;
   const fallidos = (one(sp, 'fallidos') ?? '').split(',').filter(Boolean);
   const sinmotor = (one(sp, 'sinmotor') ?? '').split(',').filter(Boolean);
+  const sintoken = (one(sp, 'sintoken') ?? '').split(',').filter(Boolean);
 
   const hayFiltros =
     specs.length > 0 || anioMin != null || anioMax != null || kmMin != null ||
@@ -130,6 +131,8 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
             <span className="text-xs font-medium text-ink-3">Buscar en:</span>
             {PORTALES_VISIBLES.map((p) => {
               const ok = scrapeable(p.value);
+              // Dubizzle queda opt-in (consume más crédito de Apify).
+              const porDefecto = ok && p.value !== 'dubizzle';
               return (
                 <label
                   key={p.value}
@@ -140,12 +143,13 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
                     type="checkbox"
                     name="portales"
                     value={p.value}
-                    defaultChecked={ok}
+                    defaultChecked={porDefecto}
                     disabled={!ok}
                     className="h-4 w-4 accent-[var(--accent)]"
                   />
                   {p.label}
                   {!ok && <span className="text-xs">(pronto)</span>}
+                  {p.value === 'dubizzle' && ok && <span className="text-xs text-ink-3">(+ crédito)</span>}
                 </label>
               );
             })}
@@ -153,7 +157,7 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
           <BotonBuscar />
         </div>
         <p className="mt-2 text-xs text-ink-3">
-          Enter para buscar. YallaMotor puede tardar unos segundos (usa navegador real).
+          Enter para buscar. Trae hasta 300 unidades por tienda; puede tardar 1–2 minutos.
         </p>
       </form>
 
@@ -170,11 +174,12 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
               ? `${nuevos} ${nuevos === 1 ? 'unidad nueva agregada' : 'unidades nuevas agregadas'} · ${vistos} vistas en los portales.`
               : `Sin novedades: las ${vistos ?? 0} unidades vistas ya estaban en el tablero.`}
           </div>
-          {(fallidos.length > 0 || sinmotor.length > 0) && (
+          {(fallidos.length > 0 || sinmotor.length > 0 || sintoken.length > 0) && (
             <div className="flex items-center gap-2 rounded-c-md border border-warn/30 bg-warn/10 px-4 py-3 text-xs text-warn">
               <AlertTriangle size={14} />
               {fallidos.length > 0 && <span>Fallaron: {fallidos.map(etiquetaPortal).join(', ')}. </span>}
-              {sinmotor.length > 0 && <span>Sin scraper aún: {sinmotor.map(etiquetaPortal).join(', ')}.</span>}
+              {sinmotor.length > 0 && <span>Sin scraper aún: {sinmotor.map(etiquetaPortal).join(', ')}. </span>}
+              {sintoken.length > 0 && <span>Falta APIFY_TOKEN para: {sintoken.map(etiquetaPortal).join(', ')}.</span>}
             </div>
           )}
         </div>

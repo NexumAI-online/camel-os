@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { ResultadoScrapeado } from '../types';
 import { normalizarSpec } from '../constants';
+import { slugMarca } from '../marcas';
 
 /**
  * Scraper de Dubicars (Feature 3 · motor worker in-repo).
@@ -20,7 +21,7 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-const MAX_PAGINAS = 5;
+const MAX_PAGINAS = 20; // ~30 unidades por página → hasta ~600
 
 /** Campos que nos interesan del JSON embebido en cada tarjeta. */
 interface MixpanelDetail {
@@ -105,22 +106,24 @@ function parsearPagina(html: string): ResultadoScrapeado[] {
 }
 
 /**
- * Rastrea Dubicars para una marca y devuelve los anuncios encontrados.
+ * Rastrea Dubicars para una marca y devuelve los anuncios (hasta `tope`).
+ * Es `fetch` puro (sin navegador ni Apify): rápido, gratis y confiable.
  * @param make  Marca a buscar (ej. "Porsche", "Mercedes Benz").
- * @param opts.paginas  Cuántas páginas recorrer (1–5, default 2).
+ * @param opts.tope  Máximo de resultados a traer (default 300).
  */
 export async function scrapeDubicars(
   make: string,
-  opts: { paginas?: number } = {},
+  opts: { tope?: number } = {},
 ): Promise<ResultadoScrapeado[]> {
-  const slug = make.trim().toLowerCase().replace(/\s+/g, '-');
+  const slug = slugMarca(make);
   if (!slug) return [];
-  const paginas = Math.min(Math.max(opts.paginas ?? 2, 1), MAX_PAGINAS);
+  const tope = Math.max(opts.tope ?? 300, 1);
+  const paginas = Math.min(Math.ceil(tope / 28) + 1, MAX_PAGINAS);
 
   const out: ResultadoScrapeado[] = [];
   const vistos = new Set<string>();
 
-  for (let page = 1; page <= paginas; page++) {
+  for (let page = 1; page <= paginas && out.length < tope; page++) {
     const url =
       `https://www.dubicars.com/uae/used/${encodeURIComponent(slug)}` +
       (page > 1 ? `?page=${page}` : '');
@@ -146,5 +149,5 @@ export async function scrapeDubicars(
     }
   }
 
-  return out;
+  return out.slice(0, tope);
 }

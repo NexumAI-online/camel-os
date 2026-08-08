@@ -1,5 +1,8 @@
 /** Specs y monedas del buscador (Feature 3). */
 
+/** Máximo de resultados a traer por tienda en cada búsqueda (velocidad/costo). */
+export const TOPE_POR_TIENDA = 300;
+
 /** Origen/homologación de la unidad (specs). */
 export const SPECS = [
   { value: 'gcc', label: 'GCC' },
