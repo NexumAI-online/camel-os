@@ -1,17 +1,22 @@
 /** Specs y monedas del buscador (Feature 3). */
 
-/** Máximo de resultados a traer por tienda en cada búsqueda (velocidad/costo). */
-export const TOPE_POR_TIENDA = 300;
+/**
+ * Cuántos coches se muestran de entrada en el tablero, y cuántos añade cada
+ * pulsación de "Cargar más". La carga es sobre lo YA guardado (instantánea):
+ * el escaneo de fondo va llenando la base y esto solo controla cuántos se ven.
+ */
+export const POR_PAGINA = 100;
+export const INCREMENTO = 50;
 
-/** Opciones que el usuario puede elegir como máximo por tienda. */
-export const TOPES = [50, 100, 200, 300, 500] as const;
+/**
+ * Tope de seguridad del escaneo de Dubicars: hasta 20 páginas (~600 coches) por
+ * marca. En marcas enormes (Mercedes ~1.900) evita escaneos de minutos; el
+ * contador muestra "de las primeras N escaneadas" + el total de la marca.
+ */
+export const MAX_PAGINAS_DUBICARS = 20;
 
-/** Normaliza el máximo elegido a un valor válido (1–1000). */
-export function topeValido(v: unknown): number {
-  const n = typeof v === 'string' ? parseInt(v, 10) : typeof v === 'number' ? v : NaN;
-  if (!Number.isFinite(n)) return TOPE_POR_TIENDA;
-  return Math.min(Math.max(n, 1), 1000);
-}
+/** Coches por corrida de Apify (YallaMotor/Dubizzle): fijo, ya no lo elige el usuario. */
+export const TOPE_APIFY = 100;
 
 /** Origen/homologación de la unidad (specs). */
 export const SPECS = [

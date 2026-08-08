@@ -1,36 +1,18 @@
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  Search,
-  ExternalLink,
-  X,
-  Gauge,
-  Calendar,
-  MapPin,
-  CheckCircle2,
-  AlertTriangle,
-  Tag,
-} from 'lucide-react';
+import { ArrowLeft, Search, AlertTriangle } from 'lucide-react';
 
 import { Logo } from '@/components/brand/logo';
 import { BotonBuscar } from '@/components/buscador/boton-buscar';
 import { EstadoBusqueda, type RunPortal } from '@/components/buscador/estado-busqueda';
+import { EscaneoDubicars } from '@/components/buscador/escaneo-dubicars';
+import { TableroResultados } from '@/components/buscador/tablero-resultados';
 import { listarResultados } from '@/lib/buscador/db';
 import { descartarResultado, buscarUnidades, filtrarTablero } from '@/lib/buscador/actions';
 import { SCRAPERS } from '@/lib/buscador/scrapers';
 import { PORTALES, etiquetaPortal, type Portal } from '@/lib/buscador/types';
-import { SPECS, etiquetaSpec, MONEDAS, aAed, TOPES } from '@/lib/buscador/constants';
+import { SPECS, MONEDAS, aAed } from '@/lib/buscador/constants';
 
 export const dynamic = 'force-dynamic';
-
-const nf = new Intl.NumberFormat('es-ES');
-
-const PORTAL_CLS: Record<Portal, string> = {
-  dubizzle: 'bg-danger/15 text-danger',
-  yallamotor: 'bg-accent/15 text-accent-hi',
-  dubicars: 'bg-ok/15 text-ok',
-  fb_marketplace: 'bg-warn/15 text-warn',
-};
 
 // FB Marketplace queda afuera (viola ToS y es frágil).
 const PORTALES_VISIBLES = PORTALES.filter((p) => p.value !== 'fb_marketplace');
@@ -65,7 +47,6 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
   const moneda = one(sp, 'moneda') ?? 'AED';
   const precioMin = num(one(sp, 'precioMin'));
   const precioMax = num(one(sp, 'precioMax'));
-  const topeSel = one(sp, 'tope') ?? '300';
 
   const resultados = await listarResultados({
     q,
@@ -80,9 +61,6 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
   });
 
   // Aviso tras una corrida del scraper.
-  const nuevos = num(one(sp, 'nuevos'));
-  const vistos = num(one(sp, 'vistos'));
-  const hayResumen = one(sp, 'vistos') != null;
   const fallidos = (one(sp, 'fallidos') ?? '').split(',').filter(Boolean);
   const sinmotor = (one(sp, 'sinmotor') ?? '').split(',').filter(Boolean);
   const sintoken = (one(sp, 'sintoken') ?? '').split(',').filter(Boolean);
@@ -94,7 +72,11 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
     const run = one(sp, `run_${portal}`);
     if (run) runs.push({ portal, run });
   }
-  const hayAviso = hayResumen || runs.length > 0 || fallidos.length > 0 || sinmotor.length > 0 || sintoken.length > 0 || sincredito.length > 0;
+  // Escaneo progresivo de Dubicars (lo arranca el cliente página a página).
+  const scanDubicars = one(sp, 'scan_dubicars') === '1' && !!q;
+  const hayAviso =
+    scanDubicars || runs.length > 0 || fallidos.length > 0 ||
+    sinmotor.length > 0 || sintoken.length > 0 || sincredito.length > 0;
 
   const hayFiltros =
     specs.length > 0 || anioMin != null || anioMax != null || kmMin != null ||
@@ -119,7 +101,8 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
           Unidades en Dubái
         </h1>
         <p className="mt-1 text-sm text-ink-3">
-          {resultados.length} {resultados.length === 1 ? 'resultado' : 'resultados'} · Dubicars · YallaMotor
+          {resultados.length === 600 ? '600+' : resultados.length}{' '}
+          {resultados.length === 1 ? 'coincide' : 'coinciden'} · Dubicars · YallaMotor
         </p>
       </div>
 
@@ -138,35 +121,25 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
           />
         </div>
 
-        {/* Portales + máximo por tienda */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-medium text-ink-3">Buscar en:</span>
-            {PORTALES_VISIBLES.map((p) => {
-              const ok = scrapeable(p.value);
-              const porDefecto = ok && p.value !== 'dubizzle';
-              return (
-                <label
-                  key={p.value}
-                  title={ok ? '' : 'Muro anti-bot — próximamente'}
-                  className={`inline-flex items-center gap-2 text-sm ${ok ? 'text-ink-1' : 'cursor-not-allowed text-ink-3'}`}
-                >
-                  <input type="checkbox" name="portales" value={p.value} defaultChecked={porDefecto} disabled={!ok} className="h-4 w-4 accent-[var(--accent)]" />
-                  {p.label}
-                  {!ok && <span className="text-xs">(pronto)</span>}
-                  {p.value === 'dubizzle' && ok && <span className="text-xs text-ink-3">(+ crédito)</span>}
-                </label>
-              );
-            })}
-          </div>
-          <label className="inline-flex items-center gap-2 text-xs font-medium text-ink-3">
-            Máximo por tienda:
-            <select name="tope" defaultValue={topeSel} className={`${inputCls} w-auto py-1.5`}>
-              {TOPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </label>
+        {/* Portales */}
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-xs font-medium text-ink-3">Buscar en:</span>
+          {PORTALES_VISIBLES.map((p) => {
+            const ok = scrapeable(p.value);
+            const porDefecto = ok && p.value !== 'dubizzle';
+            return (
+              <label
+                key={p.value}
+                title={ok ? '' : 'Muro anti-bot — próximamente'}
+                className={`inline-flex items-center gap-2 text-sm ${ok ? 'text-ink-1' : 'cursor-not-allowed text-ink-3'}`}
+              >
+                <input type="checkbox" name="portales" value={p.value} defaultChecked={porDefecto} disabled={!ok} className="h-4 w-4 accent-[var(--accent)]" />
+                {p.label}
+                {!ok && <span className="text-xs">(pronto)</span>}
+                {p.value === 'dubizzle' && ok && <span className="text-xs text-ink-3">(+ crédito)</span>}
+              </label>
+            );
+          })}
         </div>
 
         {/* Filtros (se aplican antes de guardar los resultados) */}
@@ -233,7 +206,7 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
         </div>
 
         <p className="text-xs text-ink-3">
-          Enter para buscar. Los filtros y el máximo se aplican antes de traer resultados; “Filtrar tablero” solo refina lo ya cargado (gratis).
+          Enter para buscar. Los filtros se aplican antes de guardar los resultados; “Filtrar tablero” solo refina lo ya cargado (gratis).
         </p>
       </form>
 
@@ -244,13 +217,13 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
         </div>
       ) : hayAviso ? (
         <div className="mt-4 space-y-2">
-          {hayResumen && (
-            <div className="flex items-center gap-2 rounded-c-md border border-ok/30 bg-ok/10 px-4 py-3 text-sm text-ok">
-              <CheckCircle2 size={16} />
-              {nuevos && nuevos > 0
-                ? `Dubicars: ${nuevos} ${nuevos === 1 ? 'unidad nueva' : 'unidades nuevas'} · ${vistos} vistas.`
-                : `Dubicars: sin novedades (las ${vistos ?? 0} vistas ya estaban).`}
-            </div>
+          {/* Escaneo progresivo de Dubicars (contador en vivo hasta el total).
+              La `key` incluye marca+filtros: una búsqueda nueva remonta y reinicia. */}
+          {scanDubicars && q && (
+            <EscaneoDubicars
+              key={[q, specs.join(','), anioMin, anioMax, kmMin, kmMax, precioMin, precioMax, moneda].join('|')}
+              make={q}
+            />
           )}
           {/* Chips por portal de Apify (se van completando solos) */}
           <EstadoBusqueda runs={runs} />
@@ -276,66 +249,7 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
           <p className="text-xs text-ink-3">Escribe una marca arriba y toca “Buscar en portales”.</p>
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {resultados.map((r) => (
-            <div key={r.id} className="glass-float group relative flex flex-col overflow-hidden rounded-c-xl">
-              {/* Imagen */}
-              <div className="relative aspect-[16/10] overflow-hidden surface-2">
-                {r.imagen_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.imagen_url} alt={r.titulo ?? ''} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-ink-3">Sin foto</div>
-                )}
-                <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-xs font-semibold ${PORTAL_CLS[r.portal]}`}>
-                  {etiquetaPortal(r.portal)}
-                </span>
-                {r.specs && (
-                  <span className="absolute right-11 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-xs font-medium text-white">
-                    <Tag size={11} /> {etiquetaSpec(r.specs)}
-                  </span>
-                )}
-                {/* Descartar */}
-                <form action={descartarResultado.bind(null, r.id)} className="absolute right-2 top-2">
-                  <button
-                    type="submit"
-                    title="Descartar"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-danger"
-                  >
-                    <X size={15} />
-                  </button>
-                </form>
-              </div>
-
-              {/* Datos */}
-              <div className="flex flex-1 flex-col p-4">
-                <p className="font-semibold leading-tight text-ink-1">
-                  {r.titulo || [r.marca, r.modelo].filter(Boolean).join(' ') || 'Unidad'}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-3">
-                  {r.anio != null && <span className="inline-flex items-center gap-1"><Calendar size={12} /> {r.anio}</span>}
-                  {r.km != null && <span className="inline-flex items-center gap-1"><Gauge size={12} /> {nf.format(r.km)} km</span>}
-                  {r.ubicacion && <span className="inline-flex items-center gap-1"><MapPin size={12} /> {r.ubicacion}</span>}
-                </div>
-                <div className="mt-3 flex items-end justify-between">
-                  <span className="font-display text-lg font-bold text-accent-hi">
-                    {r.precio != null ? `${nf.format(r.precio)} ${r.moneda}` : '—'}
-                  </span>
-                  {r.url && (
-                    <a
-                      href={r.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-medium text-ink-2 transition-colors hover:text-accent-hi"
-                    >
-                      Ver anuncio <ExternalLink size={13} />
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <TableroResultados resultados={resultados} descartar={descartarResultado} />
       )}
     </main>
   );

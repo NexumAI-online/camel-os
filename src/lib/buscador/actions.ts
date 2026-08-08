@@ -6,9 +6,8 @@ import { redirect } from 'next/navigation';
 import { getSupabaseAdmin } from '@/lib/supabase/server';
 import { SCRAPERS, APIFY_CONFIG } from './scrapers';
 import { apifyConfigurada, iniciarActor } from './apify';
-import { ingestarResultados } from './ingest';
 import { PORTALES, type Portal } from './types';
-import { aAed, topeValido } from './constants';
+import { aAed, TOPE_APIFY } from './constants';
 import type { FiltrosScrape } from './filtrar';
 
 /** Descarta un resultado (Carlos lo marca como no interesante → se oculta). */
@@ -29,10 +28,9 @@ function numOf(v: FormDataEntryValue | null): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-/** Lee marca + máximo + filtros del formulario (compartido por buscar y filtrar). */
+/** Lee marca + filtros del formulario (compartido por buscar y filtrar). */
 function leerFormulario(formData: FormData) {
   const make = String(formData.get('q') ?? '').trim();
-  const tope = topeValido(formData.get('tope'));
   const specs = formData.getAll('specs').map(String).filter(Boolean);
   const anioMin = numOf(formData.get('anioMin'));
   const anioMax = numOf(formData.get('anioMax'));
@@ -52,7 +50,7 @@ function leerFormulario(formData: FormData) {
     precioMaxAed: precioMax != null ? Math.round(aAed(precioMax, moneda)) : undefined,
   };
 
-  return { make, tope, specs, anioMin, anioMax, kmMin, kmMax, precioMin, precioMax, moneda, filtros };
+  return { make, specs, anioMin, anioMax, kmMin, kmMax, precioMin, precioMax, moneda, filtros };
 }
 
 /** Vuelca los filtros crudos a la query (para el tablero y el sondeo async). */
@@ -68,7 +66,6 @@ function ponerFiltros(
   if (d.precioMin != null) params.set('precioMin', String(d.precioMin));
   if (d.precioMax != null) params.set('precioMax', String(d.precioMax));
   if (d.moneda && d.moneda !== 'AED') params.set('moneda', d.moneda);
-  params.set('tope', String(d.tope));
 }
 
 /** Filtra SOLO el tablero (sin scrapear): navega con los filtros en la query. */
@@ -81,9 +78,11 @@ export async function filtrarTablero(formData: FormData) {
 }
 
 /**
- * Dispara la búsqueda de una marca en los portales elegidos, aplicando el
- * máximo y los filtros ANTES de guardar (solo se ingesta lo que coincide).
- * Dubicars corre inline; YallaMotor/Dubizzle se lanzan async (runId por query).
+ * Dispara la búsqueda de una marca en los portales elegidos, aplicando los
+ * filtros ANTES de guardar (solo se ingesta lo que coincide).
+ *   · Dubicars   → escaneo progresivo lado cliente (flag `scan_dubicars`): el
+ *     tablero pide página a página y los coches van apareciendo, gratis.
+ *   · YallaMotor/Dubizzle → corridas async de Apify (runId por query, tope 100).
  */
 export async function buscarUnidades(formData: FormData) {
   const d = leerFormulario(formData);
@@ -101,17 +100,8 @@ export async function buscarUnidades(formData: FormData) {
   const sinScraper = pedidos.filter((p) => !(p in SCRAPERS));
   if (sinScraper.length) params.set('sinmotor', sinScraper.join(','));
 
-  // 1) Dubicars: inline (rápido, gratis) → ingesta filtrada inmediata.
-  if (pedidos.includes('dubicars')) {
-    try {
-      const filas = await SCRAPERS.dubicars!(d.make, { tope: d.tope });
-      const r = await ingestarResultados('dubicars', filas, d.filtros);
-      params.set('nuevos', String(r.insertados));
-      params.set('vistos', String(r.encontrados));
-    } catch {
-      fallidos.push('dubicars');
-    }
-  }
+  // 1) Dubicars: escaneo progresivo (lo arranca el cliente). Solo marcamos el flag.
+  if (pedidos.includes('dubicars')) params.set('scan_dubicars', '1');
 
   // 2) Apify (YallaMotor/Dubizzle): lanzar corridas async y pasar el runId.
   const apifyPedidos = pedidos.filter((p) => p in APIFY_CONFIG);
@@ -121,7 +111,7 @@ export async function buscarUnidades(formData: FormData) {
     for (const portal of apifyPedidos) {
       try {
         const cfg = APIFY_CONFIG[portal]!;
-        const runId = await iniciarActor(cfg.actorId, cfg.input(d.make, d.tope));
+        const runId = await iniciarActor(cfg.actorId, cfg.input(d.make, TOPE_APIFY));
         params.set(`run_${portal}`, runId);
       } catch (e) {
         if (/usage|paid-actor|402/i.test(String((e as Error).message))) sinCredito.push(portal);

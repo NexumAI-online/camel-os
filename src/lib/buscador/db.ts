@@ -10,11 +10,14 @@ function esNum(v: unknown): v is number {
 /** Lista resultados no descartados, aplicando los filtros del tablero. */
 export async function listarResultados(filtros: FiltrosBuscador = {}): Promise<Resultado[]> {
   const supabase = getSupabaseAdmin();
+  // Límite de visualización: el tablero pagina en cliente ("Cargar más") sobre
+  // esta lista. 600 = tope del escaneo por marca; evita mandar miles de filas.
   let q = supabase
     .from('busqueda_resultados')
     .select('*')
     .eq('descartado', false)
-    .order('encontrado_en', { ascending: false });
+    .order('encontrado_en', { ascending: false })
+    .limit(600);
 
   const texto = filtros.q?.trim();
   if (texto) {
