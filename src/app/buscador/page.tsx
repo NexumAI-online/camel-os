@@ -16,10 +16,10 @@ import { Logo } from '@/components/brand/logo';
 import { BotonBuscar } from '@/components/buscador/boton-buscar';
 import { EstadoBusqueda, type RunPortal } from '@/components/buscador/estado-busqueda';
 import { listarResultados } from '@/lib/buscador/db';
-import { descartarResultado, buscarUnidades } from '@/lib/buscador/actions';
+import { descartarResultado, buscarUnidades, filtrarTablero } from '@/lib/buscador/actions';
 import { SCRAPERS } from '@/lib/buscador/scrapers';
 import { PORTALES, etiquetaPortal, type Portal } from '@/lib/buscador/types';
-import { SPECS, etiquetaSpec, MONEDAS, aAed } from '@/lib/buscador/constants';
+import { SPECS, etiquetaSpec, MONEDAS, aAed, TOPES } from '@/lib/buscador/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +65,7 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
   const moneda = one(sp, 'moneda') ?? 'AED';
   const precioMin = num(one(sp, 'precioMin'));
   const precioMax = num(one(sp, 'precioMax'));
+  const topeSel = one(sp, 'tope') ?? '300';
 
   const resultados = await listarResultados({
     q,
@@ -122,8 +123,8 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
         </p>
       </div>
 
-      {/* Barra única de búsqueda: rastrea la marca en los portales elegidos */}
-      <form action={buscarUnidades} className="glass-float mt-6 rounded-c-xl p-4">
+      {/* Búsqueda + filtros: los filtros y el máximo se aplican ANTES de traer resultados */}
+      <form action={buscarUnidades} className="glass-float mt-6 space-y-4 rounded-c-xl p-4">
         <div className="relative">
           <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" />
           <input
@@ -136,12 +137,13 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
             className={`${inputCls} py-3 pl-11 text-base`}
           />
         </div>
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+        {/* Portales + máximo por tienda */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-medium text-ink-3">Buscar en:</span>
             {PORTALES_VISIBLES.map((p) => {
               const ok = scrapeable(p.value);
-              // Dubizzle queda opt-in (consume más crédito de Apify).
               const porDefecto = ok && p.value !== 'dubizzle';
               return (
                 <label
@@ -149,14 +151,7 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
                   title={ok ? '' : 'Muro anti-bot — próximamente'}
                   className={`inline-flex items-center gap-2 text-sm ${ok ? 'text-ink-1' : 'cursor-not-allowed text-ink-3'}`}
                 >
-                  <input
-                    type="checkbox"
-                    name="portales"
-                    value={p.value}
-                    defaultChecked={porDefecto}
-                    disabled={!ok}
-                    className="h-4 w-4 accent-[var(--accent)]"
-                  />
+                  <input type="checkbox" name="portales" value={p.value} defaultChecked={porDefecto} disabled={!ok} className="h-4 w-4 accent-[var(--accent)]" />
                   {p.label}
                   {!ok && <span className="text-xs">(pronto)</span>}
                   {p.value === 'dubizzle' && ok && <span className="text-xs text-ink-3">(+ crédito)</span>}
@@ -164,10 +159,81 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
               );
             })}
           </div>
-          <BotonBuscar />
+          <label className="inline-flex items-center gap-2 text-xs font-medium text-ink-3">
+            Máximo por tienda:
+            <select name="tope" defaultValue={topeSel} className={`${inputCls} w-auto py-1.5`}>
+              {TOPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </label>
         </div>
-        <p className="mt-2 text-xs text-ink-3">
-          Enter para buscar. Dubicars aparece al instante; YallaMotor y Dubizzle se suman solos cuando terminan.
+
+        {/* Filtros (se aplican antes de guardar los resultados) */}
+        <div className="border-t border-[var(--w06)] pt-4">
+          <fieldset>
+            <legend className="mb-2 text-xs font-medium text-ink-2">Specs (origen)</legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {SPECS.map((s) => (
+                <label key={s.value} className="inline-flex items-center gap-1.5 text-sm text-ink-1">
+                  <input type="checkbox" name="specs" value={s.value} defaultChecked={specs.includes(s.value)} className="h-4 w-4 accent-[var(--accent)]" />
+                  {s.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div>
+              <span className="mb-2 block text-xs font-medium text-ink-2">Año</span>
+              <div className="flex items-center gap-2">
+                <input name="anioMin" defaultValue={one(sp, 'anioMin') ?? ''} inputMode="numeric" placeholder="Desde" className={inputCls} />
+                <span className="text-ink-3">–</span>
+                <input name="anioMax" defaultValue={one(sp, 'anioMax') ?? ''} inputMode="numeric" placeholder="Hasta" className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <span className="mb-2 block text-xs font-medium text-ink-2">Kilómetros</span>
+              <div className="flex items-center gap-2">
+                <input name="kmMin" defaultValue={one(sp, 'kmMin') ?? ''} inputMode="numeric" placeholder="Desde" className={inputCls} />
+                <span className="text-ink-3">–</span>
+                <input name="kmMax" defaultValue={one(sp, 'kmMax') ?? ''} inputMode="numeric" placeholder="Hasta" className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <span className="mb-2 block text-xs font-medium text-ink-2">Precio</span>
+              <div className="flex items-center gap-2">
+                <input name="precioMin" defaultValue={one(sp, 'precioMin') ?? ''} inputMode="numeric" placeholder="Desde" className={inputCls} />
+                <span className="text-ink-3">–</span>
+                <input name="precioMax" defaultValue={one(sp, 'precioMax') ?? ''} inputMode="numeric" placeholder="Hasta" className={inputCls} />
+                <select name="moneda" defaultValue={moneda} className={`${inputCls} w-auto`} title="Moneda del rango">
+                  {MONEDAS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.value}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Acciones */}
+        <div className="flex flex-wrap items-center gap-3">
+          <BotonBuscar />
+          <button type="submit" formAction={filtrarTablero} className="rounded-c-md border border-[var(--w12)] px-4 py-2.5 text-sm font-medium text-ink-1 transition-colors hover:border-accent">
+            Filtrar tablero
+          </button>
+          {(hayFiltros || q) && (
+            <Link href={limpiarHref} className="text-xs text-ink-3 transition-colors hover:text-ink-1">
+              Limpiar
+            </Link>
+          )}
+          {moneda !== 'AED' && (precioMin != null || precioMax != null) && (
+            <span className="text-xs text-ink-3">Precio convertido a AED (tasa aprox.).</span>
+          )}
+        </div>
+
+        <p className="text-xs text-ink-3">
+          Enter para buscar. Los filtros y el máximo se aplican antes de traer resultados; “Filtrar tablero” solo refina lo ya cargado (gratis).
         </p>
       </form>
 
@@ -199,80 +265,6 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
           )}
         </div>
       ) : null}
-
-      {/* Filtros (refinan el tablero; sin caja de texto: la barra de arriba es la búsqueda) */}
-      <form className="glass-float mt-6 space-y-4 rounded-c-xl p-4" role="search">
-        {/* Preserva la marca buscada al refinar */}
-        <input type="hidden" name="q" value={q ?? ''} />
-
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink-3">Refinar resultados</p>
-          {(hayFiltros || q) && (
-            <Link href={limpiarHref} className="text-xs text-ink-3 transition-colors hover:text-ink-1">
-              Limpiar filtros
-            </Link>
-          )}
-        </div>
-
-        {/* Specs */}
-        <fieldset>
-          <legend className="mb-2 text-xs font-medium text-ink-2">Specs (origen)</legend>
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
-            {SPECS.map((s) => (
-              <label key={s.value} className="inline-flex items-center gap-1.5 text-sm text-ink-1">
-                <input type="checkbox" name="specs" value={s.value} defaultChecked={specs.includes(s.value)} className="h-4 w-4 accent-[var(--accent)]" />
-                {s.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          {/* Año */}
-          <div>
-            <span className="mb-2 block text-xs font-medium text-ink-2">Año</span>
-            <div className="flex items-center gap-2">
-              <input name="anioMin" defaultValue={one(sp, 'anioMin') ?? ''} inputMode="numeric" placeholder="Desde" className={inputCls} />
-              <span className="text-ink-3">–</span>
-              <input name="anioMax" defaultValue={one(sp, 'anioMax') ?? ''} inputMode="numeric" placeholder="Hasta" className={inputCls} />
-            </div>
-          </div>
-
-          {/* Km */}
-          <div>
-            <span className="mb-2 block text-xs font-medium text-ink-2">Kilómetros</span>
-            <div className="flex items-center gap-2">
-              <input name="kmMin" defaultValue={one(sp, 'kmMin') ?? ''} inputMode="numeric" placeholder="Desde" className={inputCls} />
-              <span className="text-ink-3">–</span>
-              <input name="kmMax" defaultValue={one(sp, 'kmMax') ?? ''} inputMode="numeric" placeholder="Hasta" className={inputCls} />
-            </div>
-          </div>
-
-          {/* Precio + moneda */}
-          <div>
-            <span className="mb-2 block text-xs font-medium text-ink-2">Precio</span>
-            <div className="flex items-center gap-2">
-              <input name="precioMin" defaultValue={one(sp, 'precioMin') ?? ''} inputMode="numeric" placeholder="Desde" className={inputCls} />
-              <span className="text-ink-3">–</span>
-              <input name="precioMax" defaultValue={one(sp, 'precioMax') ?? ''} inputMode="numeric" placeholder="Hasta" className={inputCls} />
-              <select name="moneda" defaultValue={moneda} className={`${inputCls} w-auto`} title="Moneda del rango">
-                {MONEDAS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.value}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button type="submit" className="rounded-c-md border border-[var(--w12)] px-4 py-2.5 text-sm font-medium text-ink-1 transition-colors hover:border-accent">
-            Filtrar
-          </button>
-          {moneda !== 'AED' && (precioMin != null || precioMax != null) && (
-            <span className="text-xs text-ink-3">Rango convertido a AED con tasa aprox.</span>
-          )}
-        </div>
-      </form>
 
       {/* Resultados */}
       {resultados.length === 0 ? (

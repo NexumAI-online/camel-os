@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getSupabaseAdmin } from '@/lib/supabase/server';
 import type { Portal, ResultadoScrapeado, ResumenIngesta } from './types';
+import { filtrar, type FiltrosScrape } from './filtrar';
 
 /** Tamaño de lote: un `.in()` con cientos de URLs arma una query enorme (414). */
 const LOTE = 80;
@@ -24,13 +25,17 @@ function enLotes<T>(arr: T[], n: number): T[][] {
 export async function ingestarResultados(
   portal: Portal,
   filas: ResultadoScrapeado[],
+  filtros: FiltrosScrape = {},
 ): Promise<ResumenIngesta> {
   const supabase = getSupabaseAdmin();
+
+  // Filtra ANTES de guardar: solo entran al tablero las que cumplen lo pedido.
+  const relevantes = filtrar(filas, filtros);
 
   // Solo consideramos filas con URL (es la clave anti-duplicado) y deduplicamos
   // dentro del propio lote (el scraper puede repetir una URL entre páginas).
   const porUrl = new Map<string, ResultadoScrapeado>();
-  for (const f of filas) if (f.url) porUrl.set(f.url, f);
+  for (const f of relevantes) if (f.url) porUrl.set(f.url, f);
   const conUrl = [...porUrl.values()];
   const urls = [...porUrl.keys()];
 
@@ -56,7 +61,7 @@ export async function ingestarResultados(
   }
 
   return {
-    encontrados: filas.length,
+    encontrados: relevantes.length,
     insertados: nuevos.length,
     duplicados: conUrl.length - nuevos.length,
   };

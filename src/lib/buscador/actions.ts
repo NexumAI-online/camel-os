@@ -8,7 +8,8 @@ import { SCRAPERS, APIFY_CONFIG } from './scrapers';
 import { apifyConfigurada, iniciarActor } from './apify';
 import { ingestarResultados } from './ingest';
 import { PORTALES, type Portal } from './types';
-import { TOPE_POR_TIENDA } from './constants';
+import { aAed, topeValido } from './constants';
+import type { FiltrosScrape } from './filtrar';
 
 /** Descarta un resultado (Carlos lo marca como no interesante → se oculta). */
 export async function descartarResultado(id: string) {
@@ -21,33 +22,90 @@ export async function descartarResultado(id: string) {
   revalidatePath('/buscador');
 }
 
+function numOf(v: FormDataEntryValue | null): number | undefined {
+  const s = typeof v === 'string' ? v.replace(/\D/g, '') : '';
+  if (s === '') return undefined;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** Lee marca + máximo + filtros del formulario (compartido por buscar y filtrar). */
+function leerFormulario(formData: FormData) {
+  const make = String(formData.get('q') ?? '').trim();
+  const tope = topeValido(formData.get('tope'));
+  const specs = formData.getAll('specs').map(String).filter(Boolean);
+  const anioMin = numOf(formData.get('anioMin'));
+  const anioMax = numOf(formData.get('anioMax'));
+  const kmMin = numOf(formData.get('kmMin'));
+  const kmMax = numOf(formData.get('kmMax'));
+  const precioMin = numOf(formData.get('precioMin'));
+  const precioMax = numOf(formData.get('precioMax'));
+  const moneda = String(formData.get('moneda') ?? 'AED');
+
+  const filtros: FiltrosScrape = {
+    specs,
+    anioMin,
+    anioMax,
+    kmMin,
+    kmMax,
+    precioMinAed: precioMin != null ? Math.round(aAed(precioMin, moneda)) : undefined,
+    precioMaxAed: precioMax != null ? Math.round(aAed(precioMax, moneda)) : undefined,
+  };
+
+  return { make, tope, specs, anioMin, anioMax, kmMin, kmMax, precioMin, precioMax, moneda, filtros };
+}
+
+/** Vuelca los filtros crudos a la query (para el tablero y el sondeo async). */
+function ponerFiltros(
+  params: URLSearchParams,
+  d: ReturnType<typeof leerFormulario>,
+) {
+  for (const s of d.specs) params.append('specs', s);
+  if (d.anioMin != null) params.set('anioMin', String(d.anioMin));
+  if (d.anioMax != null) params.set('anioMax', String(d.anioMax));
+  if (d.kmMin != null) params.set('kmMin', String(d.kmMin));
+  if (d.kmMax != null) params.set('kmMax', String(d.kmMax));
+  if (d.precioMin != null) params.set('precioMin', String(d.precioMin));
+  if (d.precioMax != null) params.set('precioMax', String(d.precioMax));
+  if (d.moneda && d.moneda !== 'AED') params.set('moneda', d.moneda);
+  params.set('tope', String(d.tope));
+}
+
+/** Filtra SOLO el tablero (sin scrapear): navega con los filtros en la query. */
+export async function filtrarTablero(formData: FormData) {
+  const d = leerFormulario(formData);
+  const params = new URLSearchParams();
+  if (d.make) params.set('q', d.make);
+  ponerFiltros(params, d);
+  redirect(`/buscador?${params.toString()}`);
+}
+
 /**
- * Dispara la búsqueda de una marca en los portales elegidos (checkboxes).
- * Flujo ASÍNCRONO para no bloquear:
- *   · Dubicars corre inline (fetch propio, rápido) → se ingesta ya.
- *   · YallaMotor/Dubizzle se LANZAN en Apify (async) → se pasa el runId por la
- *     query; el tablero sondea `/api/buscador/estado` y los suma al terminar.
+ * Dispara la búsqueda de una marca en los portales elegidos, aplicando el
+ * máximo y los filtros ANTES de guardar (solo se ingesta lo que coincide).
+ * Dubicars corre inline; YallaMotor/Dubizzle se lanzan async (runId por query).
  */
 export async function buscarUnidades(formData: FormData) {
-  const make = String(formData.get('q') ?? '').trim();
-  if (!make) redirect('/buscador');
+  const d = leerFormulario(formData);
+  if (!d.make) redirect('/buscador');
 
   const pedidos = formData
     .getAll('portales')
     .map((p) => String(p))
     .filter((p) => PORTALES.some((x) => x.value === p)) as Portal[];
 
-  const params = new URLSearchParams({ q: make });
+  const params = new URLSearchParams({ q: d.make });
+  ponerFiltros(params, d);
   const fallidos: string[] = [];
   const sinCredito: string[] = [];
   const sinScraper = pedidos.filter((p) => !(p in SCRAPERS));
   if (sinScraper.length) params.set('sinmotor', sinScraper.join(','));
 
-  // 1) Dubicars: inline (rápido, gratis) → ingesta inmediata.
+  // 1) Dubicars: inline (rápido, gratis) → ingesta filtrada inmediata.
   if (pedidos.includes('dubicars')) {
     try {
-      const filas = await SCRAPERS.dubicars!(make, { tope: TOPE_POR_TIENDA });
-      const r = await ingestarResultados('dubicars', filas);
+      const filas = await SCRAPERS.dubicars!(d.make, { tope: d.tope });
+      const r = await ingestarResultados('dubicars', filas, d.filtros);
       params.set('nuevos', String(r.insertados));
       params.set('vistos', String(r.encontrados));
     } catch {
@@ -63,10 +121,9 @@ export async function buscarUnidades(formData: FormData) {
     for (const portal of apifyPedidos) {
       try {
         const cfg = APIFY_CONFIG[portal]!;
-        const runId = await iniciarActor(cfg.actorId, cfg.input(make, TOPE_POR_TIENDA));
+        const runId = await iniciarActor(cfg.actorId, cfg.input(d.make, d.tope));
         params.set(`run_${portal}`, runId);
       } catch (e) {
-        // 402 = sin crédito de Apify (distinto de un fallo del scraper).
         if (/usage|paid-actor|402/i.test(String((e as Error).message))) sinCredito.push(portal);
         else fallidos.push(portal);
       }

@@ -1,10 +1,22 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 import { etiquetaPortal } from '@/lib/buscador/types';
+
+/** Query string con los filtros vigentes (para filtrar los resultados async). */
+function filtrosQS(sp: URLSearchParams): string {
+  const p = new URLSearchParams();
+  for (const s of sp.getAll('specs')) p.append('specs', s);
+  for (const k of ['anioMin', 'anioMax', 'kmMin', 'kmMax', 'precioMin', 'precioMax', 'moneda']) {
+    const v = sp.get(k);
+    if (v) p.set(k, v);
+  }
+  const s = p.toString();
+  return s ? `&${s}` : '';
+}
 
 type Estado = 'corriendo' | 'listo' | 'error';
 export interface RunPortal {
@@ -19,6 +31,7 @@ export interface RunPortal {
  */
 export function EstadoBusqueda({ runs }: { runs: RunPortal[] }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [estados, setEstados] = useState<Record<string, { e: Estado; nuevos?: number }>>(
     () => Object.fromEntries(runs.map((r) => [r.portal, { e: 'corriendo' as Estado }])),
   );
@@ -28,12 +41,13 @@ export function EstadoBusqueda({ runs }: { runs: RunPortal[] }) {
     if (runs.length === 0) return;
     let cancelado = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
+    const qs = filtrosQS(searchParams as unknown as URLSearchParams);
 
     for (const { portal, run } of runs) {
       const sondear = async () => {
         if (cancelado || listos.current.has(portal)) return;
         try {
-          const res = await fetch(`/api/buscador/estado?portal=${portal}&run=${run}`, {
+          const res = await fetch(`/api/buscador/estado?portal=${portal}&run=${run}${qs}`, {
             cache: 'no-store',
           });
           const j = await res.json();

@@ -3,6 +3,16 @@
 /** Máximo de resultados a traer por tienda en cada búsqueda (velocidad/costo). */
 export const TOPE_POR_TIENDA = 300;
 
+/** Opciones que el usuario puede elegir como máximo por tienda. */
+export const TOPES = [50, 100, 200, 300, 500] as const;
+
+/** Normaliza el máximo elegido a un valor válido (1–1000). */
+export function topeValido(v: unknown): number {
+  const n = typeof v === 'string' ? parseInt(v, 10) : typeof v === 'number' ? v : NaN;
+  if (!Number.isFinite(n)) return TOPE_POR_TIENDA;
+  return Math.min(Math.max(n, 1), 1000);
+}
+
 /** Origen/homologación de la unidad (specs). */
 export const SPECS = [
   { value: 'gcc', label: 'GCC' },
