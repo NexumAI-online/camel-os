@@ -11,13 +11,17 @@ function esNum(v: unknown): v is number {
 /** Lista resultados no descartados, aplicando los filtros del tablero. */
 export async function listarResultados(filtros: FiltrosBuscador = {}): Promise<Resultado[]> {
   const supabase = getSupabaseAdmin();
+  // Orden ASCENDENTE (lo primero encontrado, arriba): durante el escaneo
+  // progresivo, las tandas nuevas se AÑADEN ABAJO en vez de empujar todo hacia
+  // abajo, así lo que ya estás mirando arriba no se te reacomoda.
   // Límite de visualización: el tablero pagina en cliente ("Cargar más") sobre
   // esta lista. Alto para mostrar TODAS las coincidencias de una búsqueda filtrada.
   let q = supabase
     .from('busqueda_resultados')
     .select('*')
     .eq('descartado', false)
-    .order('encontrado_en', { ascending: false })
+    .order('encontrado_en', { ascending: true })
+    .order('id', { ascending: true })
     .limit(LIMITE_TABLERO);
 
   const texto = filtros.q?.trim();
