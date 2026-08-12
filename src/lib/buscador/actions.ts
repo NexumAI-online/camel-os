@@ -82,7 +82,9 @@ export async function filtrarTablero(formData: FormData) {
  * filtros ANTES de guardar (solo se ingesta lo que coincide).
  *   · Dubicars   → escaneo progresivo lado cliente (flag `scan_dubicars`): el
  *     tablero pide página a página y los coches van apareciendo, gratis.
- *   · YallaMotor/Dubizzle → corridas async de Apify (runId por query, tope 100).
+ *   · YallaMotor → escaneo progresivo lado cliente con Chrome propio (flag
+ *     `scan_yalla`): igual que Dubicars pero con navegador real. GRATIS, sin Apify.
+ *   · Dubizzle   → corrida async de Apify (runId por query, tope 100). Único de pago.
  */
 export async function buscarUnidades(formData: FormData) {
   const d = leerFormulario(formData);
@@ -100,10 +102,12 @@ export async function buscarUnidades(formData: FormData) {
   const sinScraper = pedidos.filter((p) => !(p in SCRAPERS));
   if (sinScraper.length) params.set('sinmotor', sinScraper.join(','));
 
-  // 1) Dubicars: escaneo progresivo (lo arranca el cliente). Solo marcamos el flag.
+  // 1) Dubicars y YallaMotor: escaneo progresivo (lo arranca el cliente).
+  //    Solo marcamos el flag; cada uno tiene su ruta y su componente.
   if (pedidos.includes('dubicars')) params.set('scan_dubicars', '1');
+  if (pedidos.includes('yallamotor')) params.set('scan_yalla', '1');
 
-  // 2) Apify (YallaMotor/Dubizzle): lanzar corridas async y pasar el runId.
+  // 2) Apify (solo Dubizzle): lanzar corrida async y pasar el runId.
   const apifyPedidos = pedidos.filter((p) => p in APIFY_CONFIG);
   if (apifyPedidos.length && !apifyConfigurada()) {
     params.set('sintoken', apifyPedidos.join(','));
