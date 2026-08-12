@@ -51,6 +51,12 @@ export async function obtenerFactura(id: string): Promise<FacturaEditable | null
       direccion: data.cliente_direccion ?? '',
     },
     lineas: Array.isArray(data.lineas) ? data.lineas : [],
+    // Si las columnas de IVA no existen (ALTER pendiente), viene undefined →
+    // se reconstruye sin IVA (comportamiento previo).
+    iva:
+      data.lleva_iva != null || data.iva_porcentaje != null
+        ? { activo: !!data.lleva_iva, porcentaje: Number(data.iva_porcentaje) || 0 }
+        : undefined,
   };
 
   return { id: data.id, factura, driveUrl: data.drive_url ?? null };

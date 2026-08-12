@@ -1,4 +1,4 @@
-import type { LineaFactura, Moneda } from './types';
+import type { Factura, LineaFactura, Moneda } from './types';
 
 /**
  * Formatea un importe al estilo del PDF de ECOM: separador de miles con punto,
@@ -18,7 +18,26 @@ export function formatearImporte(valor: number, moneda: Moneda): string {
   return `${numero}${moneda}`;
 }
 
-/** Suma de las cantidades de todas las líneas. */
+/**
+ * Suma de las cantidades de todas las líneas. Es la BASE IMPONIBLE (antes de
+ * IVA). Sin IVA, coincide con el total; con IVA, es el subtotal a desglosar.
+ */
 export function totalFactura(lineas: LineaFactura[]): number {
   return lineas.reduce((acc, l) => acc + (Number.isFinite(l.cantidad) ? l.cantidad : 0), 0);
+}
+
+/** ¿La factura desglosa IVA? (activo y con porcentaje > 0). */
+export function llevaIva(factura: Factura): boolean {
+  return !!factura.iva?.activo && (factura.iva.porcentaje ?? 0) > 0;
+}
+
+/** Importe del IVA sobre la base imponible (0 si la factura no lleva IVA). */
+export function importeIva(factura: Factura): number {
+  if (!llevaIva(factura)) return 0;
+  return totalFactura(factura.lineas) * (factura.iva!.porcentaje / 100);
+}
+
+/** Total a pagar = base imponible + IVA. Sin IVA, es la base imponible. */
+export function totalConIva(factura: Factura): number {
+  return totalFactura(factura.lineas) + importeIva(factura);
 }

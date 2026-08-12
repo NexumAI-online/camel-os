@@ -7,7 +7,7 @@ import { ArrowLeft, Plus, Printer, Send, Star, Trash2 } from 'lucide-react';
 import { Logo } from '@/components/brand/logo';
 import { InvoicePreview } from './invoice-preview';
 import { RUTA_DEFECTO } from '@/lib/invoice/constants';
-import { totalFactura, formatearImporte } from '@/lib/invoice/format';
+import { totalFactura, formatearImporte, importeIva, totalConIva } from '@/lib/invoice/format';
 import type {
   Factura,
   Idioma,
@@ -21,6 +21,8 @@ let contador = 0;
 const nuevoId = () => `l${++contador}`;
 const MONEDAS: Moneda[] = ['AED', 'EUR', 'USD'];
 const KEY_MONEDA_DEFAULT = 'camel_moneda_default';
+/** IVA por defecto al activar el desglose (España = 21%). Es editable. */
+const IVA_DEFECTO = 21;
 
 function lineaVacia(): LineaFactura {
   return {
@@ -79,6 +81,10 @@ export function InvoiceForm({
   const [clienteId, setClienteId] = useState(initial?.cliente.identificacion ?? '');
   const [clienteDireccion, setClienteDireccion] = useState(initial?.cliente.direccion ?? '');
   const [clienteSel, setClienteSel] = useState('');
+  const [llevaIva, setLlevaIva] = useState<boolean>(!!initial?.iva?.activo);
+  const [ivaPorcentaje, setIvaPorcentaje] = useState<number>(
+    initial?.iva?.porcentaje ?? IVA_DEFECTO,
+  );
 
   function elegirCliente(id: string) {
     setClienteSel(id);
@@ -140,11 +146,14 @@ export function InvoiceForm({
         direccion: clienteDireccion,
       },
       lineas,
+      iva: { activo: llevaIva, porcentaje: ivaPorcentaje },
     }),
-    [idioma, moneda, numero, fecha, clienteNombre, clienteId, clienteDireccion, lineas],
+    [idioma, moneda, numero, fecha, clienteNombre, clienteId, clienteDireccion, lineas, llevaIva, ivaPorcentaje],
   );
 
-  const total = totalFactura(lineas);
+  const base = totalFactura(lineas);
+  const montoIva = importeIva(factura);
+  const total = totalConIva(factura);
 
   function actualizarLinea(id: string, campo: keyof LineaFactura, valor: string | number) {
     setLineas((prev) => prev.map((l) => (l.id === id ? { ...l, [campo]: valor } : l)));
@@ -454,6 +463,58 @@ export function InvoiceForm({
             >
               <Plus size={15} /> Añadir concepto
             </button>
+          </div>
+
+          {/* IVA / impuestos */}
+          <div className="mt-8">
+            <p className="eyebrow">Impuestos</p>
+            <div className="surface-2 mt-3 rounded-c-lg p-4">
+              <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm text-ink-1">
+                <input
+                  type="checkbox"
+                  checked={llevaIva}
+                  onChange={(e) => setLlevaIva(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--accent)]"
+                />
+                Esta factura lleva IVA
+              </label>
+
+              {llevaIva && (
+                <div className="mt-4 space-y-3">
+                  <Campo label="Porcentaje de IVA (%)" className="sm:w-48">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      max={100}
+                      step="0.1"
+                      className={`${inputCls} tabular`}
+                      value={Number.isFinite(ivaPorcentaje) ? ivaPorcentaje : ''}
+                      onChange={(e) =>
+                        setIvaPorcentaje(e.target.value === '' ? 0 : Number(e.target.value))
+                      }
+                      placeholder="21"
+                    />
+                  </Campo>
+
+                  {/* Desglose en vivo */}
+                  <div className="rounded-c-md border border-[var(--w08)] bg-[var(--inputDeep)] px-3 py-2.5 text-xs">
+                    <div className="flex items-center justify-between text-ink-2">
+                      <span>Base imponible</span>
+                      <span className="tabular">{formatearImporte(base, moneda)}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-ink-2">
+                      <span>IVA ({ivaPorcentaje}%)</span>
+                      <span className="tabular">{formatearImporte(montoIva, moneda)}</span>
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between border-t border-[var(--w08)] pt-1.5 font-semibold text-ink-1">
+                      <span>Total</span>
+                      <span className="tabular">{formatearImporte(total, moneda)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Acciones */}

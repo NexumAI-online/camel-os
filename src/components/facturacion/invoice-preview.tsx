@@ -1,5 +1,11 @@
 import { EMISOR, TEXTOS } from '@/lib/invoice/constants';
-import { formatearImporte, totalFactura } from '@/lib/invoice/format';
+import {
+  formatearImporte,
+  importeIva,
+  llevaIva,
+  totalConIva,
+  totalFactura,
+} from '@/lib/invoice/format';
 import type { Factura } from '@/lib/invoice/types';
 
 /* ─────────────────────────────────────────────────────────────
@@ -39,7 +45,10 @@ export function InvoicePreview({
   selloSrc?: string;
 }) {
   const t = TEXTOS[factura.idioma];
-  const total = totalFactura(factura.lineas);
+  const base = totalFactura(factura.lineas);
+  const conIva = llevaIva(factura);
+  const iva = importeIva(factura);
+  const total = totalConIva(factura);
   const direccionCliente = factura.cliente.direccion
     .split('\n')
     .map((l) => l.trim())
@@ -209,9 +218,22 @@ export function InvoicePreview({
           </tbody>
         </table>
 
-        {/* Total + monto grande (magenta), a la derecha */}
+        {/* Total + monto grande (magenta), a la derecha.
+            Con IVA se desglosa: Base imponible + IVA (%) + Total. */}
         <div style={{ marginTop: 10, textAlign: 'right' }}>
-          <div style={{ fontSize: 8.7 }}>
+          {conIva && (
+            <>
+              <div style={{ fontSize: 8.7, color: GRIS }}>
+                <span style={{ fontWeight: 700 }}>{t.subtotal}</span>{' '}
+                <span>{formatearImporte(base, factura.moneda)}</span>
+              </div>
+              <div style={{ fontSize: 8.7, color: GRIS, marginTop: 2 }}>
+                <span style={{ fontWeight: 700 }}>{t.iva(factura.iva!.porcentaje)}</span>{' '}
+                <span>{formatearImporte(iva, factura.moneda)}</span>
+              </div>
+            </>
+          )}
+          <div style={{ fontSize: 8.7, marginTop: conIva ? 4 : 0 }}>
             <span style={{ color: NAVY, fontWeight: 700 }}>{t.total}</span>{' '}
             <span style={{ color: '#000', fontWeight: 700 }}>
               {formatearImporte(total, factura.moneda)}

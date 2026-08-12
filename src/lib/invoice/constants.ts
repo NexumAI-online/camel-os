@@ -36,6 +36,8 @@ export const TEXTOS: Record<
     colDescripcion: string;
     colDetalles: string;
     colCantidad: (moneda: string) => string;
+    subtotal: string;
+    iva: (porcentaje: number) => string;
     total: string;
     tradeLicense: string;
     terminosTitulo: string;
@@ -56,6 +58,8 @@ export const TEXTOS: Record<
     colDescripcion: 'DESCRIPCION',
     colDetalles: 'DETALLES',
     colCantidad: (m) => `CANTIDAD (${m}):`,
+    subtotal: 'Base imponible:',
+    iva: (p) => `IVA (${p}%):`,
     total: 'Total:',
     tradeLicense: 'Trade License',
     terminosTitulo: 'Términos de pago:',
@@ -81,6 +85,8 @@ export const TEXTOS: Record<
     colDescripcion: 'DESCRIPTION',
     colDetalles: 'DETAILS',
     colCantidad: (m) => `AMOUNT (${m}):`,
+    subtotal: 'Subtotal:',
+    iva: (p) => `VAT (${p}%):`,
     total: 'Total:',
     tradeLicense: 'Trade License',
     terminosTitulo: 'Payment terms:',

@@ -18,6 +18,17 @@ export interface LineaFactura {
   cantidad: number;
 }
 
+/**
+ * Configuración de IVA de la factura (opcional).
+ * Si el bloque no existe o `activo` es false, la factura NO desglosa impuestos
+ * y se comporta exactamente igual que antes (sin línea de IVA en el PDF).
+ */
+export interface Iva {
+  activo: boolean;
+  /** Porcentaje aplicado sobre la base imponible (ej. 21 = 21%). */
+  porcentaje: number;
+}
+
 /** Datos del comprador (bloque "Factura a:"). */
 export interface Cliente {
   nombre: string;
@@ -38,4 +49,6 @@ export interface Factura {
   fecha: string;
   cliente: Cliente;
   lineas: LineaFactura[];
+  /** IVA de la factura (opcional). Ausente = sin IVA (comportamiento previo). */
+  iva?: Iva;
 }
