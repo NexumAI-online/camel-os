@@ -5,7 +5,6 @@ import { Logo } from '@/components/brand/logo';
 import { BotonBuscar } from '@/components/buscador/boton-buscar';
 import { EstadoBusqueda, type RunPortal } from '@/components/buscador/estado-busqueda';
 import { EscaneoDubicars } from '@/components/buscador/escaneo-dubicars';
-import { EscaneoYallamotor } from '@/components/buscador/escaneo-yallamotor';
 import { TableroResultados } from '@/components/buscador/tablero-resultados';
 import { listarResultados } from '@/lib/buscador/db';
 import { descartarResultado, buscarUnidades, filtrarTablero } from '@/lib/buscador/actions';
@@ -68,17 +67,16 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
   const sintoken = (one(sp, 'sintoken') ?? '').split(',').filter(Boolean);
   const sincredito = (one(sp, 'sincredito') ?? '').split(',').filter(Boolean);
 
-  // Corridas async de Apify en curso (solo Dubizzle; YallaMotor ya no usa Apify).
+  // Corridas async de Apify en curso (YallaMotor + Dubizzle).
   const runs: RunPortal[] = [];
-  for (const portal of ['dubizzle']) {
+  for (const portal of ['yallamotor', 'dubizzle']) {
     const run = one(sp, `run_${portal}`);
     if (run) runs.push({ portal, run });
   }
-  // Escaneos progresivos lado cliente (los arranca el cliente página a página).
+  // Escaneo progresivo de Dubicars (lo arranca el cliente página a página).
   const scanDubicars = one(sp, 'scan_dubicars') === '1' && !!q;
-  const scanYalla = one(sp, 'scan_yalla') === '1' && !!q;
   const hayAviso =
-    scanDubicars || scanYalla || runs.length > 0 || fallidos.length > 0 ||
+    scanDubicars || runs.length > 0 || fallidos.length > 0 ||
     sinmotor.length > 0 || sintoken.length > 0 || sincredito.length > 0;
 
   const hayFiltros =
@@ -227,13 +225,6 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
           {scanDubicars && q && (
             <EscaneoDubicars
               key={[q, specs.join(','), anioMin, anioMax, kmMin, kmMax, precioMin, precioMax, moneda].join('|')}
-              make={q}
-            />
-          )}
-          {/* Escaneo progresivo de YallaMotor (Chrome propio, sin Apify). */}
-          {scanYalla && q && (
-            <EscaneoYallamotor
-              key={['y', q, specs.join(','), anioMin, anioMax, kmMin, kmMax, precioMin, precioMax, moneda].join('|')}
               make={q}
             />
           )}
