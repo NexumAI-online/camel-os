@@ -25,6 +25,7 @@ export interface Resultado {
   precio: number | null;
   moneda: string;
   specs: string | null;
+  color: string | null;
   ubicacion: string | null;
   url: string | null;
   imagen_url: string | null;
@@ -62,6 +63,7 @@ export interface ResultadoScrapeado {
   precio: number | null;
   moneda: string;
   specs: string | null;
+  color: string | null;
   ubicacion: string | null;
   url: string | null;
   imagen_url: string | null;

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { ExternalLink, X, Gauge, Calendar, MapPin, Tag, Plus } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ExternalLink, X, Gauge, Calendar, MapPin, Tag, Plus, Palette } from 'lucide-react';
 
 import { etiquetaPortal, type Portal, type Resultado } from '@/lib/buscador/types';
 import { etiquetaSpec, POR_PAGINA, INCREMENTO } from '@/lib/buscador/constants';
@@ -15,10 +15,20 @@ const PORTAL_CLS: Record<Portal, string> = {
   fb_marketplace: 'bg-warn/15 text-warn',
 };
 
+type Orden = 'recientes' | 'precio-asc' | 'precio-desc' | 'portal';
+
+/** Compara por precio dejando SIEMPRE los sin-precio al final. */
+function cmpPrecio(a: Resultado, b: Resultado, desc: boolean): number {
+  if (a.precio == null && b.precio == null) return 0;
+  if (a.precio == null) return 1;
+  if (b.precio == null) return -1;
+  return desc ? b.precio - a.precio : a.precio - b.precio;
+}
+
 /**
- * Grilla de resultados con "Cargar más". Muestra `POR_PAGINA` (100) de entrada y
- * revela `INCREMENTO` (50) más por pulsación, sobre lo YA guardado: instantáneo
- * y sin volver a scrapear (el escaneo de fondo es quien llena la base).
+ * Grilla de resultados con controles de orden (botones) y filtro por color,
+ * más "Cargar más". El orden y el filtro se aplican en cliente sobre lo YA
+ * guardado (instantáneo, sin re-scrapear).
  */
 export function TableroResultados({
   resultados,
@@ -28,12 +38,65 @@ export function TableroResultados({
   descartar: (id: string) => Promise<void>;
 }) {
   const [visibles, setVisibles] = useState(POR_PAGINA);
-  const mostrados = resultados.slice(0, visibles);
-  const restantes = resultados.length - mostrados.length;
+  const [orden, setOrden] = useState<Orden>('recientes');
+  const [color, setColor] = useState<string | null>(null);
+
+  // Colores presentes en los resultados (para los chips de filtro).
+  const colores = useMemo(
+    () => [...new Set(resultados.map((r) => r.color).filter((c): c is string => !!c))].sort(),
+    [resultados],
+  );
+
+  // Aplica filtro de color + orden (copia antes de ordenar, no muta el original).
+  const procesadas = useMemo(() => {
+    const arr = color ? resultados.filter((r) => r.color === color) : resultados.slice();
+    switch (orden) {
+      case 'precio-asc':
+        return arr.sort((a, b) => cmpPrecio(a, b, false));
+      case 'precio-desc':
+        return arr.sort((a, b) => cmpPrecio(a, b, true));
+      case 'portal':
+        return arr.sort((a, b) => etiquetaPortal(a.portal).localeCompare(etiquetaPortal(b.portal)));
+      default:
+        return arr; // recientes = orden de hallazgo (el que ya trae la lista)
+    }
+  }, [resultados, orden, color]);
+
+  const mostrados = procesadas.slice(0, visibles);
+  const restantes = procesadas.length - mostrados.length;
 
   return (
     <>
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Controles: orden (botones) + filtro de color (chips) */}
+      <div className="mt-6 flex flex-col gap-3 rounded-c-lg border border-[var(--w06)] bg-[var(--inputDeep)]/40 p-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-ink-3">Ordenar:</span>
+          <div className="flex flex-wrap gap-1.5">
+            <Btn activo={orden === 'recientes'} onClick={() => setOrden('recientes')}>Recientes</Btn>
+            <Btn activo={orden === 'precio-asc'} onClick={() => setOrden('precio-asc')}>Precio ↑</Btn>
+            <Btn activo={orden === 'precio-desc'} onClick={() => setOrden('precio-desc')}>Precio ↓</Btn>
+            <Btn activo={orden === 'portal'} onClick={() => setOrden('portal')}>Portal</Btn>
+          </div>
+        </div>
+
+        {colores.length > 0 && (
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-ink-3">
+              <Palette size={13} /> Color:
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              <Btn activo={color === null} onClick={() => setColor(null)}>Todos</Btn>
+              {colores.map((c) => (
+                <Btn key={c} activo={color === c} onClick={() => setColor(c)}>
+                  {c}
+                </Btn>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {mostrados.map((r) => (
           <div key={r.id} className="glass-float group relative flex flex-col overflow-hidden rounded-c-xl">
             {/* Imagen */}
@@ -72,6 +135,7 @@ export function TableroResultados({
               <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-3">
                 {r.anio != null && <span className="inline-flex items-center gap-1"><Calendar size={12} /> {r.anio}</span>}
                 {r.km != null && <span className="inline-flex items-center gap-1"><Gauge size={12} /> {nf.format(r.km)} km</span>}
+                {r.color && <span className="inline-flex items-center gap-1"><Palette size={12} /> {r.color}</span>}
                 {r.ubicacion && <span className="inline-flex items-center gap-1"><MapPin size={12} /> {r.ubicacion}</span>}
               </div>
               <div className="mt-3 flex items-end justify-between">
@@ -106,5 +170,30 @@ export function TableroResultados({
         </div>
       )}
     </>
+  );
+}
+
+/** Botón chico de control (orden / color), con estado activo. */
+function Btn({
+  activo,
+  onClick,
+  children,
+}: {
+  activo: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-c-sm px-3 py-1.5 text-xs font-medium transition-colors ${
+        activo
+          ? 'bg-accent text-white'
+          : 'border border-[var(--w10)] text-ink-2 hover:border-accent hover:text-ink-1'
+      }`}
+    >
+      {children}
+    </button>
   );
 }

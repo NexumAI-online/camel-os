@@ -59,6 +59,39 @@ export function normalizarSpec(raw?: string | null): Spec | null {
   return 'other';
 }
 
+/**
+ * Normaliza el color exterior crudo del portal a una etiqueta corta en español.
+ * Los portales lo dan en inglés (Black/White/Silver…); mapeamos los comunes y,
+ * si no matchea, devolvemos el crudo capitalizado. Null si viene vacío.
+ */
+const COLORES: Record<string, string> = {
+  black: 'Negro',
+  white: 'Blanco',
+  silver: 'Plata',
+  grey: 'Gris',
+  gray: 'Gris',
+  blue: 'Azul',
+  red: 'Rojo',
+  green: 'Verde',
+  yellow: 'Amarillo',
+  orange: 'Naranja',
+  brown: 'Marrón',
+  beige: 'Beige',
+  gold: 'Dorado',
+  purple: 'Púrpura',
+  maroon: 'Granate',
+  tan: 'Tostado',
+  bronze: 'Bronce',
+};
+
+export function normalizarColor(raw?: string | null): string | null {
+  const t = (raw ?? '').trim().toLowerCase();
+  if (!t) return null;
+  for (const k of Object.keys(COLORES)) if (t.includes(k)) return COLORES[k];
+  const c = (raw ?? '').trim();
+  return c.charAt(0).toUpperCase() + c.slice(1).toLowerCase();
+}
+
 /** Monedas seleccionables en el filtro de precio. */
 export const MONEDAS = [
   { value: 'AED', label: 'AED (dírham)' },

@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { ResultadoScrapeado } from '../types';
-import { normalizarSpec } from '../constants';
+import { normalizarSpec, normalizarColor } from '../constants';
 import { slugMarca, urlDubizzle } from '../marcas';
 import { correrActor } from '../apify';
 
@@ -35,6 +35,9 @@ export function mapearDubizzle(items: Record<string, unknown>[]): ResultadoScrap
       precio: num(it.price),
       moneda: 'AED',
       specs: normalizarSpec(it.regionalSpecs as string),
+      color: normalizarColor(
+        (it.exteriorColor as string) ?? (it.color as string) ?? (it.exterior_color as string) ?? null,
+      ),
       ubicacion: ((it.location as string) || '').trim() || null,
       url: ((it.url as string) || '').trim() || null,
       imagen_url: ((it.imageUrl as string) || '').trim() || null,

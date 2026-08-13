@@ -56,7 +56,17 @@ export async function ingestarResultados(
     .map((f) => ({ ...f, portal }));
 
   for (const lote of enLotes(nuevos, LOTE)) {
-    const { error } = await supabase.from('busqueda_resultados').insert(lote);
+    let { error } = await supabase.from('busqueda_resultados').insert(lote);
+    // La columna `color` es opcional: si el ALTER aún no se corrió, reintentamos
+    // sin ella (el color no persiste hasta crear la columna, nada más se rompe).
+    if (error && /color/i.test(error.message)) {
+      const sinColor = lote.map((row) => {
+        const copia: Record<string, unknown> = { ...row };
+        delete copia.color;
+        return copia;
+      });
+      ({ error } = await supabase.from('busqueda_resultados').insert(sinColor));
+    }
     if (error) throw new Error(error.message);
   }
 

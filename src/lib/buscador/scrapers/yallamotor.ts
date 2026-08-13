@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { ResultadoScrapeado } from '../types';
-import { normalizarSpec } from '../constants';
+import { normalizarSpec, normalizarColor } from '../constants';
 import { slugMarca, urlYallamotor } from '../marcas';
 import { conNavegador } from '../../browser';
 
@@ -39,6 +39,7 @@ interface CarLd {
   vehicleModelDate?: string | number;
   description?: string;
   image?: string;
+  color?: string;
   mileageFromOdometer?: { value?: number };
   offers?: { price?: number; priceCurrency?: string };
 }
@@ -109,6 +110,7 @@ export function parsearItemsYalla(html: string): ResultadoScrapeado[] {
       precio: num(c.offers?.price),
       moneda: (c.offers?.priceCurrency || 'AED').trim(),
       specs: specsDeDescripcion(c.description),
+      color: normalizarColor(c.color),
       ubicacion: ciudadDeDescripcion(c.description),
       url: (c.url || '').trim() || null,
       imagen_url: (c.image || '').trim() || null,

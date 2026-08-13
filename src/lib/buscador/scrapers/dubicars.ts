@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { ResultadoScrapeado } from '../types';
-import { normalizarSpec, MAX_PAGINAS_DUBICARS } from '../constants';
+import { normalizarSpec, normalizarColor, MAX_PAGINAS_DUBICARS } from '../constants';
 import { slugMarca } from '../marcas';
 
 /**
@@ -39,6 +39,7 @@ interface MixpanelDetail {
   item_year?: number;
   item_mileage?: number;
   item_specs?: string;
+  item_exterior_color?: string;
   item_location?: string;
   item_local_price?: number;
   item_discounted_price?: number;
@@ -118,6 +119,7 @@ function parsearPagina(html: string): ResultadoScrapeado[] {
       precio: num(d.item_discounted_price) ?? num(d.item_local_price),
       moneda: 'AED',
       specs: normalizarSpec(d.item_specs),
+      color: normalizarColor(d.item_exterior_color),
       ubicacion: d.item_location?.trim() || null,
       url: href ? href[1] : null,
       imagen_url: d.image_url?.trim() || null,

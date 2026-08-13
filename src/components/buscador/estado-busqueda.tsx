@@ -18,11 +18,15 @@ function filtrosQS(sp: URLSearchParams): string {
   return s ? `&${s}` : '';
 }
 
-type Estado = 'corriendo' | 'listo' | 'error';
+type Estado = 'corriendo' | 'listo' | 'error' | 'timeout';
 export interface RunPortal {
   portal: string;
   run: string;
 }
+
+/** Tope de espera del sondeo: si un portal (Dubizzle) tarda más, se corta el
+ *  spinner y se avisa, en vez de girar para siempre. */
+const DEADLINE_MS = 8 * 60 * 1000; // 8 minutos
 
 /**
  * Sondea el estado de las corridas de Apify lanzadas por la búsqueda y muestra
@@ -43,9 +47,16 @@ export function EstadoBusqueda({ runs }: { runs: RunPortal[] }) {
     const timers: ReturnType<typeof setTimeout>[] = [];
     const qs = filtrosQS(searchParams as unknown as URLSearchParams);
 
+    const inicio = Date.now();
     for (const { portal, run } of runs) {
       const sondear = async () => {
         if (cancelado || listos.current.has(portal)) return;
+        // Tope de espera: si tardó demasiado, cortamos con aviso (no gira infinito).
+        if (Date.now() - inicio > DEADLINE_MS) {
+          listos.current.add(portal);
+          setEstados((s) => ({ ...s, [portal]: { e: 'timeout' } }));
+          return;
+        }
         try {
           const res = await fetch(`/api/buscador/estado?portal=${portal}&run=${run}${qs}`, {
             cache: 'no-store',
@@ -94,9 +105,16 @@ export function EstadoBusqueda({ runs }: { runs: RunPortal[] }) {
             </span>
           );
         }
+        if (st === 'timeout') {
+          return (
+            <span key={portal} className={`${base} border-warn/30 bg-warn/10 text-warn`}>
+              <AlertTriangle size={13} /> {etiquetaPortal(portal)}: tardó demasiado — refrescá en un momento
+            </span>
+          );
+        }
         return (
           <span key={portal} className={`${base} border-[var(--w10)] text-ink-2`}>
-            <Loader2 size={13} className="animate-spin" /> {etiquetaPortal(portal)}: buscando…
+            <Loader2 size={13} className="animate-spin" /> {etiquetaPortal(portal)}: buscando… (puede tardar unos minutos)
           </span>
         );
       })}

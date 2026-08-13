@@ -41,6 +41,7 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
 
   const q = one(sp, 'q');
   const specs = many(sp, 'specs');
+  const portalesSel = many(sp, 'portales');
   const anioMin = num(one(sp, 'anioMin'));
   const anioMax = num(one(sp, 'anioMax'));
   const kmMin = num(one(sp, 'kmMin'));
@@ -128,7 +129,9 @@ export default async function BuscadorPage({ searchParams }: { searchParams: Pro
           <span className="text-xs font-medium text-ink-3">Buscar en:</span>
           {PORTALES_VISIBLES.map((p) => {
             const ok = scrapeable(p.value);
-            const porDefecto = ok && p.value !== 'dubizzle';
+            // Si ya se buscó, respetamos lo que estaba marcado (no se resetea);
+            // si no, el default (Dubicars + YallaMotor sí, Dubizzle no por el costo).
+            const porDefecto = ok && (portalesSel.length ? portalesSel.includes(p.value) : p.value !== 'dubizzle');
             return (
               <label
                 key={p.value}

@@ -32,6 +32,7 @@ function numOf(v: FormDataEntryValue | null): number | undefined {
 function leerFormulario(formData: FormData) {
   const make = String(formData.get('q') ?? '').trim();
   const specs = formData.getAll('specs').map(String).filter(Boolean);
+  const portales = formData.getAll('portales').map(String).filter(Boolean);
   const anioMin = numOf(formData.get('anioMin'));
   const anioMax = numOf(formData.get('anioMax'));
   const kmMin = numOf(formData.get('kmMin'));
@@ -50,7 +51,7 @@ function leerFormulario(formData: FormData) {
     precioMaxAed: precioMax != null ? Math.round(aAed(precioMax, moneda)) : undefined,
   };
 
-  return { make, specs, anioMin, anioMax, kmMin, kmMax, precioMin, precioMax, moneda, filtros };
+  return { make, specs, portales, anioMin, anioMax, kmMin, kmMax, precioMin, precioMax, moneda, filtros };
 }
 
 /** Vuelca los filtros crudos a la query (para el tablero y el sondeo async). */
@@ -59,6 +60,8 @@ function ponerFiltros(
   d: ReturnType<typeof leerFormulario>,
 ) {
   for (const s of d.specs) params.append('specs', s);
+  // Persistimos los portales elegidos para que los checks no se reseteen.
+  for (const p of d.portales) params.append('portales', p);
   if (d.anioMin != null) params.set('anioMin', String(d.anioMin));
   if (d.anioMax != null) params.set('anioMax', String(d.anioMax));
   if (d.kmMin != null) params.set('kmMin', String(d.kmMin));
