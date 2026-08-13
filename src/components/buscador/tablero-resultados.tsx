@@ -15,7 +15,7 @@ const PORTAL_CLS: Record<Portal, string> = {
   fb_marketplace: 'bg-warn/15 text-warn',
 };
 
-type Orden = 'recientes' | 'precio-asc' | 'precio-desc' | 'portal';
+type Orden = 'recientes' | 'precio-asc' | 'precio-desc';
 
 /** Compara por precio dejando SIEMPRE los sin-precio al final. */
 function cmpPrecio(a: Resultado, b: Resultado, desc: boolean): number {
@@ -40,27 +40,32 @@ export function TableroResultados({
   const [visibles, setVisibles] = useState(POR_PAGINA);
   const [orden, setOrden] = useState<Orden>('recientes');
   const [color, setColor] = useState<string | null>(null);
+  const [portalSel, setPortalSel] = useState<Portal | null>(null);
 
-  // Colores presentes en los resultados (para los chips de filtro).
+  // Colores y portales presentes en los resultados (para los chips de filtro).
   const colores = useMemo(
     () => [...new Set(resultados.map((r) => r.color).filter((c): c is string => !!c))].sort(),
     [resultados],
   );
+  const portales = useMemo(
+    () => [...new Set(resultados.map((r) => r.portal))],
+    [resultados],
+  );
 
-  // Aplica filtro de color + orden (copia antes de ordenar, no muta el original).
+  // Aplica filtros (portal + color) + orden. Copia antes de ordenar (no muta).
   const procesadas = useMemo(() => {
-    const arr = color ? resultados.filter((r) => r.color === color) : resultados.slice();
+    let arr = resultados.slice();
+    if (portalSel) arr = arr.filter((r) => r.portal === portalSel);
+    if (color) arr = arr.filter((r) => r.color === color);
     switch (orden) {
       case 'precio-asc':
         return arr.sort((a, b) => cmpPrecio(a, b, false));
       case 'precio-desc':
         return arr.sort((a, b) => cmpPrecio(a, b, true));
-      case 'portal':
-        return arr.sort((a, b) => etiquetaPortal(a.portal).localeCompare(etiquetaPortal(b.portal)));
       default:
         return arr; // recientes = orden de hallazgo (el que ya trae la lista)
     }
-  }, [resultados, orden, color]);
+  }, [resultados, orden, color, portalSel]);
 
   const mostrados = procesadas.slice(0, visibles);
   const restantes = procesadas.length - mostrados.length;
@@ -75,9 +80,22 @@ export function TableroResultados({
             <Btn activo={orden === 'recientes'} onClick={() => setOrden('recientes')}>Recientes</Btn>
             <Btn activo={orden === 'precio-asc'} onClick={() => setOrden('precio-asc')}>Precio ↑</Btn>
             <Btn activo={orden === 'precio-desc'} onClick={() => setOrden('precio-desc')}>Precio ↓</Btn>
-            <Btn activo={orden === 'portal'} onClick={() => setOrden('portal')}>Portal</Btn>
           </div>
         </div>
+
+        {portales.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-ink-3">Portal:</span>
+            <div className="flex flex-wrap gap-1.5">
+              <Btn activo={portalSel === null} onClick={() => setPortalSel(null)}>Todos</Btn>
+              {portales.map((p) => (
+                <Btn key={p} activo={portalSel === p} onClick={() => setPortalSel(p)}>
+                  {etiquetaPortal(p)}
+                </Btn>
+              ))}
+            </div>
+          </div>
+        )}
 
         {colores.length > 0 && (
           <div className="flex items-center gap-2 sm:ml-auto">
