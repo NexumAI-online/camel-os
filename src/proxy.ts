@@ -8,12 +8,18 @@ import { COOKIE_SESION, sesionValida } from '@/lib/auth';
  *   · /login             → el propio formulario de acceso.
  *   · /factura/render    → página interna que Puppeteer imprime a PDF (la abre
  *                          el servidor sin cookie; sólo renderiza datos de la URL).
+ *   · /api/keep-alive    → ping del Vercel Cron a Supabase (evita el auto-pausado
+ *                          del plan free); protegida por CRON_SECRET, no por cookie.
  * Los assets de Next (_next, imágenes) se excluyen en el matcher.
  */
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith('/login') || pathname.startsWith('/factura/render')) {
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/factura/render') ||
+    pathname.startsWith('/api/keep-alive')
+  ) {
     return NextResponse.next();
   }
 
