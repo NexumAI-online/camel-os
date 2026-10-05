@@ -39,3 +39,7 @@ alter table public.busqueda_resultados add column if not exists specs text;
 create index if not exists resultados_specs_idx on public.busqueda_resultados (specs);
 create index if not exists resultados_anio_idx  on public.busqueda_resultados (anio);
 create index if not exists resultados_km_idx    on public.busqueda_resultados (km);
+
+-- ── Migración 2026-08-13 · color del anuncio ──
+-- La app degrada con elegancia si falta (guarda sin color), pero conviene tenerla.
+alter table public.busqueda_resultados add column if not exists color text;

@@ -34,3 +34,8 @@ alter table public.facturas enable row level security;
 -- Si la tabla `facturas` ya existía, correr esto para persistir la dirección
 -- del cliente al editar una factura. Es idempotente y seguro.
 alter table public.facturas add column if not exists cliente_direccion text;
+
+-- ── Migración 2026-08-12 · IVA por factura (ya aplicada en producción) ──
+alter table public.facturas
+  add column if not exists lleva_iva boolean not null default false,
+  add column if not exists iva_porcentaje numeric not null default 0;
